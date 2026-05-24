@@ -5,6 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
   <title>Nasza Tablica 💌</title>
 
+  <!-- PWA -->
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#8b6339" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Nasza Tablica" />
+  <link rel="apple-touch-icon" href="icon-192.png" />
+
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
 
@@ -22,35 +30,18 @@
             body: ['Lato', 'sans-serif'],
           },
           colors: {
-            cork: {
-              light: '#d4a96a',
-              DEFAULT: '#b8864e',
-              dark: '#8b6339',
-            },
+            cork: { light: '#d4a96a', DEFAULT: '#b8864e', dark: '#8b6339' },
             note: {
-              yellow: '#fef08a',
-              pink:   '#fbcfe8',
-              blue:   '#bfdbfe',
-              green:  '#bbf7d0',
-              orange: '#fed7aa',
-              lilac:  '#e9d5ff',
+              yellow: '#fef08a', pink: '#fbcfe8', blue: '#bfdbfe',
+              green: '#bbf7d0', orange: '#fed7aa', lilac: '#e9d5ff',
             }
           },
-          rotate: {
-            '-3': '-3deg',
-            '-2': '-2deg',
-            '-1': '-1deg',
-             '1': '1deg',
-             '2': '2deg',
-             '3': '3deg',
-          }
         }
       }
     }
   </script>
 
   <style>
-    /* Cork board texture */
     body {
       font-family: 'Lato', sans-serif;
       background-color: #b8864e;
@@ -61,204 +52,165 @@
       min-height: 100vh;
     }
 
-    /* Push-pin simulation */
     .note-pin {
-      width: 14px;
-      height: 14px;
-      border-radius: 50%;
-      position: absolute;
-      top: -6px;
-      left: 50%;
-      transform: translateX(-50%);
+      width: 14px; height: 14px; border-radius: 50%;
+      position: absolute; top: -6px; left: 50%; transform: translateX(-50%);
       box-shadow: 0 2px 4px rgba(0,0,0,0.4), inset 0 1px 2px rgba(255,255,255,0.4);
       z-index: 10;
     }
 
-    /* Note shadows */
     .sticky-note {
-      box-shadow:
-        3px 3px 10px rgba(0,0,0,0.25),
-        6px 6px 20px rgba(0,0,0,0.12),
-        inset 0 1px 0 rgba(255,255,255,0.6);
+      box-shadow: 3px 3px 10px rgba(0,0,0,0.25), 6px 6px 20px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.6);
       transition: transform 0.2s ease, box-shadow 0.2s ease;
       position: relative;
     }
-
     .sticky-note:hover {
-      box-shadow:
-        6px 8px 20px rgba(0,0,0,0.3),
-        10px 12px 30px rgba(0,0,0,0.15),
-        inset 0 1px 0 rgba(255,255,255,0.6);
+      box-shadow: 6px 8px 20px rgba(0,0,0,0.3), 10px 12px 30px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.6);
       transform: scale(1.03) rotate(0deg) !important;
       z-index: 20;
     }
-
-    /* Torn paper bottom edge */
     .sticky-note::after {
-      content: '';
-      position: absolute;
-      bottom: -1px;
-      left: 0;
-      right: 0;
-      height: 4px;
-      background: inherit;
-      filter: brightness(0.92);
-      clip-path: polygon(
-        0% 0%, 4% 100%, 8% 0%, 12% 100%, 16% 0%,
-        20% 100%, 24% 0%, 28% 100%, 32% 0%,
-        36% 100%, 40% 0%, 44% 100%, 48% 0%,
-        52% 100%, 56% 0%, 60% 100%, 64% 0%,
-        68% 100%, 72% 0%, 76% 100%, 80% 0%,
-        84% 100%, 88% 0%, 92% 100%, 96% 0%,
-        100% 100%, 100% 0%
-      );
+      content: ''; position: absolute; bottom: -1px; left: 0; right: 0; height: 4px;
+      background: inherit; filter: brightness(0.92);
+      clip-path: polygon(0% 0%, 4% 100%, 8% 0%, 12% 100%, 16% 0%, 20% 100%, 24% 0%, 28% 100%, 32% 0%, 36% 100%, 40% 0%, 44% 100%, 48% 0%, 52% 100%, 56% 0%, 60% 100%, 64% 0%, 68% 100%, 72% 0%, 76% 100%, 80% 0%, 84% 100%, 88% 0%, 92% 100%, 96% 0%, 100% 100%, 100% 0%);
     }
 
-    /* Add note button */
     .add-btn {
       background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
       box-shadow: 0 4px 15px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.1);
       transition: all 0.2s ease;
     }
-    .add-btn:hover {
-      box-shadow: 0 6px 20px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.1);
-      transform: translateY(-2px);
-    }
-    .add-btn:active {
-      transform: translateY(0);
-    }
+    .add-btn:hover { box-shadow: 0 6px 20px rgba(0,0,0,0.5); transform: translateY(-2px); }
+    .add-btn:active { transform: translateY(0); }
 
-    /* Modal overlay */
-    .modal-overlay {
-      backdrop-filter: blur(4px);
-      background: rgba(0,0,0,0.5);
-    }
+    .modal-overlay { backdrop-filter: blur(4px); background: rgba(0,0,0,0.5); }
+    .modal-card { box-shadow: 0 20px 60px rgba(0,0,0,0.4); border-radius: 2px; }
 
-    /* Modal card */
-    .modal-card {
-      background: #fffde7;
-      box-shadow: 0 20px 60px rgba(0,0,0,0.4);
-      border-radius: 2px;
-    }
-
-    /* Textarea */
     textarea {
-      font-family: 'Caveat', cursive;
-      font-size: 1.25rem;
-      resize: none;
-      background: transparent;
-      outline: none;
-      border: none;
-      width: 100%;
-      line-height: 2;
-      background-image: repeating-linear-gradient(
-        transparent,
-        transparent 31px,
-        #c8c0a0 31px,
-        #c8c0a0 32px
-      );
+      font-family: 'Caveat', cursive; font-size: 1.25rem; resize: none;
+      background: transparent; outline: none; border: none; width: 100%; line-height: 2;
+      background-image: repeating-linear-gradient(transparent, transparent 31px, #c8c0a0 31px, #c8c0a0 32px);
       background-attachment: local;
     }
-
-    input[type="text"] {
-      font-family: 'Caveat', cursive;
-      font-size: 1.1rem;
-      background: transparent;
-      border: none;
-      border-bottom: 2px solid #c8c0a0;
-      outline: none;
-      width: 100%;
+    input[type="text"], input[type="datetime-local"] {
+      font-family: 'Caveat', cursive; font-size: 1.1rem; background: transparent;
+      border: none; border-bottom: 2px solid #c8c0a0; outline: none; width: 100%;
     }
+    input[type="datetime-local"] { font-size: 0.95rem; color: #555; padding: 2px 0; }
 
-    /* Loading spinner */
     .spinner {
-      border: 3px solid rgba(255,255,255,0.2);
-      border-top-color: white;
-      border-radius: 50%;
-      width: 24px;
-      height: 24px;
+      border: 3px solid rgba(255,255,255,0.2); border-top-color: white;
+      border-radius: 50%; width: 24px; height: 24px;
       animation: spin 0.7s linear infinite;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
 
-    /* Note entrance animation */
     @keyframes noteIn {
       from { opacity: 0; transform: translateY(-20px) scale(0.9); }
       to   { opacity: 1; transform: translateY(0) scale(1); }
     }
     .note-appear { animation: noteIn 0.35s ease forwards; }
 
-    /* Delete button */
-    .delete-btn {
-      opacity: 0;
-      transition: opacity 0.2s;
-    }
+    .delete-btn { opacity: 0; transition: opacity 0.2s; }
     .sticky-note:hover .delete-btn { opacity: 1; }
 
-    /* Config screen */
-    #config-screen {
-      background: linear-gradient(135deg, #1a1a2e 0%, #2d1b5e 100%);
-    }
+    #config-screen { background: linear-gradient(135deg, #1a1a2e 0%, #2d1b5e 100%); }
 
-    /* Color picker */
     .color-swatch {
-      width: 32px;
-      height: 32px;
-      border-radius: 50%;
-      border: 3px solid transparent;
-      cursor: pointer;
+      width: 32px; height: 32px; border-radius: 50%;
+      border: 3px solid transparent; cursor: pointer;
       transition: transform 0.15s, border-color 0.15s;
     }
     .color-swatch:hover { transform: scale(1.15); }
     .color-swatch.selected { border-color: #1a1a2e; transform: scale(1.2); }
 
-    /* Author badge */
     .author-badge {
-      font-family: 'Lato', sans-serif;
-      font-size: 0.6rem;
-      font-weight: 700;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      opacity: 0.55;
+      font-family: 'Lato', sans-serif; font-size: 0.6rem; font-weight: 700;
+      letter-spacing: 0.08em; text-transform: uppercase; opacity: 0.55;
     }
 
-    /* Scrollbar styling */
     ::-webkit-scrollbar { width: 6px; }
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.2); border-radius: 3px; }
 
-    /* Tape effect on older notes */
-    .note-tape {
-      position: absolute;
-      top: -8px;
-      left: 50%;
-      transform: translateX(-50%);
-      width: 48px;
-      height: 18px;
-      background: rgba(200,230,255,0.55);
-      border-radius: 1px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.15);
-      z-index: 10;
+    /* Reakcje */
+    .reaction-bar { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 6px; }
+    .reaction-pill {
+      display: inline-flex; align-items: center; gap: 3px;
+      background: rgba(0,0,0,0.08); border-radius: 999px;
+      padding: 2px 8px; font-size: 0.75rem; cursor: pointer;
+      border: 1.5px solid transparent; transition: all 0.15s;
+      font-family: 'Lato', sans-serif; font-weight: 700;
+      user-select: none;
+    }
+    .reaction-pill:hover { background: rgba(0,0,0,0.15); transform: scale(1.1); }
+    .reaction-pill.mine  { border-color: rgba(0,0,0,0.25); background: rgba(255,255,255,0.4); }
+    .reaction-add {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 24px; height: 24px; border-radius: 50%;
+      background: rgba(0,0,0,0.07); cursor: pointer; font-size: 0.8rem;
+      border: 1.5px dashed rgba(0,0,0,0.2); transition: all 0.15s;
+      opacity: 0;
+    }
+    .sticky-note:hover .reaction-add { opacity: 1; }
+
+    /* Deadline badge */
+    .deadline-badge {
+      display: inline-flex; align-items: center; gap: 3px;
+      font-family: 'Lato', sans-serif; font-size: 0.6rem; font-weight: 700;
+      padding: 2px 6px; border-radius: 4px; margin-top: 4px;
+      letter-spacing: 0.03em;
+    }
+    .deadline-ok      { background: rgba(22,163,74,0.15);  color: #15803d; }
+    .deadline-soon    { background: rgba(234,88,12,0.15);  color: #c2410c; }
+    .deadline-overdue { background: rgba(220,38,38,0.18);  color: #b91c1c; }
+
+    /* Emoji picker popup */
+    .emoji-picker-popup {
+      position: absolute; bottom: 32px; left: 0;
+      background: white; border-radius: 12px; padding: 8px;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.2);
+      display: flex; gap: 6px; z-index: 100; flex-wrap: wrap; width: 180px;
+    }
+    .emoji-opt {
+      font-size: 1.3rem; cursor: pointer; padding: 4px;
+      border-radius: 6px; transition: background 0.1s;
+    }
+    .emoji-opt:hover { background: #f3f4f6; }
+
+    /* PWA install banner */
+    #install-banner {
+      position: fixed; bottom: 0; left: 0; right: 0; z-index: 40;
+      background: linear-gradient(135deg, #1a1a2e, #2d1b5e);
+      padding: 12px 16px; display: flex; align-items: center; gap-3;
+      box-shadow: 0 -4px 20px rgba(0,0,0,0.3);
+      transform: translateY(100%);
+      transition: transform 0.4s cubic-bezier(0.34,1.56,0.64,1);
+    }
+    #install-banner.visible { transform: translateY(0); }
+
+    /* Expired note overlay */
+    .note-expired { opacity: 0.6; }
+    .note-expired::before {
+      content: ''; position: absolute; inset: 0;
+      background: repeating-linear-gradient(-45deg, transparent, transparent 8px, rgba(0,0,0,0.04) 8px, rgba(0,0,0,0.04) 9px);
+      z-index: 1; border-radius: 2px;
     }
   </style>
 </head>
 <body class="min-h-screen">
 
-  <!-- ═══════════════════════════════════════════ CONFIG SCREEN ═══ -->
+  <!-- ══════════════════════════════════ CONFIG SCREEN ══ -->
   <div id="config-screen" class="fixed inset-0 z-50 flex items-center justify-center p-6" style="display:flex !important">
     <div class="w-full max-w-sm">
-      <!-- Logo -->
       <div class="text-center mb-8">
         <div class="text-6xl mb-3">💌</div>
         <h1 class="font-handwritten text-4xl text-white font-bold">Nasza Tablica</h1>
         <p class="text-white/50 text-sm mt-1 font-body">wspólna przestrzeń dla Was dwojga</p>
       </div>
 
-      <!-- Config form -->
       <div class="bg-white/10 backdrop-blur-sm rounded-2xl p-6 border border-white/20">
-        <!-- Firebase config -->
         <h2 class="text-white font-body font-bold text-xs uppercase tracking-widest mb-4 opacity-70">Konfiguracja Firebase</h2>
-
         <div class="space-y-3 mb-6">
           <div>
             <label class="text-white/60 text-xs font-body block mb-1">API Key</label>
@@ -276,7 +228,6 @@
 
         <hr class="border-white/10 mb-6" />
 
-        <!-- Author name -->
         <h2 class="text-white font-body font-bold text-xs uppercase tracking-widest mb-4 opacity-70">Kim jesteś?</h2>
         <div class="grid grid-cols-2 gap-3 mb-6">
           <button onclick="setAuthor('Ona', '🌸')" id="btn-ona"
@@ -289,67 +240,53 @@
           </button>
         </div>
 
-        <button onclick="startApp()"
-          class="w-full add-btn text-white font-body font-bold py-3 rounded-xl text-sm tracking-wide">
+        <button onclick="startApp()" class="w-full add-btn text-white font-body font-bold py-3 rounded-xl text-sm tracking-wide">
           Wejdź na tablicę →
         </button>
-
         <p id="cfg-error" class="text-red-400 text-xs text-center mt-3 font-body hidden"></p>
       </div>
-
       <p class="text-white/30 text-xs text-center mt-4 font-body">Dane są zapisywane lokalnie na tym urządzeniu</p>
     </div>
   </div>
 
-  <!-- ═══════════════════════════════════════════════ MAIN APP ═══ -->
+  <!-- ══════════════════════════════════════ MAIN APP ══ -->
   <div id="app" class="hidden min-h-screen flex flex-col">
 
-    <!-- Header / Cork border top -->
     <header class="bg-cork-dark/80 backdrop-blur-sm px-4 py-3 flex items-center justify-between sticky top-0 z-30 border-b-4 border-cork-dark">
       <div>
         <h1 class="font-handwritten text-2xl text-white font-bold leading-none">Nasza Tablica 💌</h1>
         <p id="header-author" class="text-white/50 text-xs font-body mt-0.5"></p>
       </div>
       <div class="flex items-center gap-3">
-        <!-- Online indicator -->
         <div id="online-dot" class="w-2 h-2 rounded-full bg-green-400 shadow-sm shadow-green-400/50"></div>
-        <!-- Settings -->
         <button onclick="showConfig()" class="text-white/50 hover:text-white transition text-lg leading-none">⚙️</button>
       </div>
     </header>
 
-    <!-- Notes grid -->
     <main class="flex-1 p-4 pb-28">
-      <!-- Empty state -->
       <div id="empty-state" class="hidden flex-col items-center justify-center pt-20 text-center">
         <div class="text-6xl mb-4 opacity-60">📌</div>
         <p class="font-handwritten text-2xl text-white/60">Tablica jest pusta…</p>
         <p class="text-white/40 text-sm font-body mt-1">Dodaj pierwszą kartkę!</p>
       </div>
-
-      <!-- Loading -->
       <div id="loading-state" class="flex flex-col items-center justify-center pt-20">
         <div class="spinner mx-auto mb-4"></div>
         <p class="text-white/50 text-sm font-body">Ładowanie karteczek…</p>
       </div>
-
-      <!-- Notes container -->
-      <div id="notes-container" class="columns-2 gap-3 sm:columns-2 md:columns-3" style="column-gap: 12px;"></div>
+      <div id="notes-container" class="columns-2 gap-3 sm:columns-2 md:columns-3" style="column-gap:12px;"></div>
     </main>
 
     <!-- FAB -->
     <div class="fixed bottom-6 right-4 z-30">
-      <button onclick="openModal()" class="add-btn w-14 h-14 rounded-full text-white text-3xl flex items-center justify-center shadow-2xl">
-        ＋
-      </button>
+      <button onclick="openModal()" class="add-btn w-14 h-14 rounded-full text-white text-3xl flex items-center justify-center shadow-2xl">＋</button>
     </div>
   </div>
 
-  <!-- ════════════════════════════════════════════════ MODAL ═══ -->
+  <!-- ═══════════════════════════════════════════ MODAL ══ -->
   <div id="modal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 modal-overlay">
-    <div class="modal-card w-full max-w-sm p-5" id="modal-inner">
+    <div class="modal-card w-full max-w-sm p-5 overflow-y-auto max-h-[90vh]" id="modal-inner">
       <!-- Pin decoration -->
-      <div class="flex justify-center mb-4">
+      <div class="flex justify-center mb-3">
         <div class="w-4 h-4 rounded-full bg-red-500 shadow-md shadow-red-500/40"></div>
       </div>
 
@@ -364,29 +301,44 @@
       </div>
 
       <!-- Title -->
-      <input id="note-title" type="text" placeholder="Tytuł (opcjonalnie)…"
-        class="mb-3 pb-1 text-gray-700 placeholder-gray-400" />
+      <input id="note-title" type="text" placeholder="Tytuł (opcjonalnie)…" class="mb-3 pb-1 text-gray-700 placeholder-gray-400" />
 
       <!-- Content -->
-      <textarea id="note-content" rows="5"
-        class="text-gray-800 placeholder-gray-400 mb-4"
-        placeholder="Wpisz swoją wiadomość…"></textarea>
+      <textarea id="note-content" rows="4" class="text-gray-800 placeholder-gray-400 mb-3" placeholder="Wpisz swoją wiadomość…"></textarea>
+
+      <!-- Deadline -->
+      <div class="mb-4">
+        <label class="text-gray-400 text-xs font-body block mb-1 uppercase tracking-wide">⏰ Termin / przypomnienie (opcjonalne)</label>
+        <input id="note-deadline" type="datetime-local" class="text-gray-600 placeholder-gray-400" />
+      </div>
 
       <!-- Actions -->
       <div class="flex gap-2">
-        <button onclick="closeModal()"
-          class="flex-1 py-2.5 rounded-lg border-2 border-gray-200 text-gray-500 font-body text-sm font-bold hover:bg-gray-50 transition active:scale-95">
-          Anuluj
-        </button>
-        <button onclick="saveNote()"
-          class="flex-1 py-2.5 rounded-lg add-btn text-white font-body text-sm font-bold transition active:scale-95">
-          Przypnij 📌
-        </button>
+        <button onclick="closeModal()" class="flex-1 py-2.5 rounded-lg border-2 border-gray-200 text-gray-500 font-body text-sm font-bold hover:bg-gray-50 transition active:scale-95">Anuluj</button>
+        <button onclick="saveNote()"   class="flex-1 py-2.5 rounded-lg add-btn text-white font-body text-sm font-bold transition active:scale-95">Przypnij 📌</button>
       </div>
     </div>
   </div>
 
-  <!-- Firebase SDK -->
+  <!-- ════════════════════════════ EMOJI PICKER MODAL ══ -->
+  <div id="emoji-modal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 modal-overlay" onclick="closeEmojiModal(event)">
+    <div class="bg-white rounded-2xl p-4 shadow-2xl max-w-xs w-full">
+      <p class="text-gray-500 text-xs font-body uppercase tracking-widest mb-3 text-center">Dodaj reakcję</p>
+      <div class="flex flex-wrap gap-2 justify-center" id="emoji-options"></div>
+    </div>
+  </div>
+
+  <!-- ═════════════════════════════ PWA INSTALL BANNER ══ -->
+  <div id="install-banner">
+    <span class="text-2xl">📲</span>
+    <div class="flex-1 ml-3">
+      <p class="text-white font-body font-bold text-sm">Zainstaluj aplikację</p>
+      <p class="text-white/50 text-xs font-body">Dodaj do ekranu głównego</p>
+    </div>
+    <button id="install-btn" class="bg-white text-gray-900 font-body font-bold text-sm px-4 py-2 rounded-xl active:scale-95 transition">Instaluj</button>
+    <button onclick="dismissInstall()" class="text-white/40 ml-2 text-xl leading-none">×</button>
+  </div>
+
   <script type="module" src="app.js"></script>
 </body>
 </html>
