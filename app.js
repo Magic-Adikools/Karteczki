@@ -45,10 +45,11 @@ async function ntfyPush(title, body, priority = 3) {
     const res = await fetch(url, {
       method: 'POST',
       headers: {
-        'Title':        title,
-        'Priority':     String(priority),
-        'Tags':         'pushpin',
-        'Content-Type': 'text/plain; charset=utf-8',
+        'Title':         title,
+        'Priority':      String(priority),
+        'Tags':          'pushpin',
+        'Authorization': 'Bearer tk_8qn8ifug8x6pvl1xv570dqb1v379a',
+        'Content-Type':  'text/plain; charset=utf-8',
       },
       body: body,
     });
