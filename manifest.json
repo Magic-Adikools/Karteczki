@@ -1,0 +1,14 @@
+{
+  "name": "Nasza Tablica",
+  "short_name": "Tablica",
+  "description": "Wspólna tablica ogłoszeń dla dwojga 💌",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#b8864e",
+  "theme_color": "#8b6339",
+  "orientation": "portrait",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
