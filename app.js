@@ -22,32 +22,39 @@ const rotations  = ['-rotate-2','-rotate-1','rotate-0','rotate-1','rotate-2','-r
 function rnd(arr) { return arr[Math.floor(Math.random()*arr.length)]; }
 
 // ── ntfy ──────────────────────────────────────────────────────
-// Unikalny kanał – zmień na własną nazwę (bez spacji, małe litery)
-// WAŻNE: ta sama nazwa musi być wpisana w aplikacji ntfy na telefonie
-const NTFY_TOPIC = 'nasza-tablica-' + getProjectSlug();
+let NTFY_TOPIC = '';
 
-function getProjectSlug() {
-  try {
-    const cfg = JSON.parse(localStorage.getItem('nasza_tablica_config'));
-    if (cfg?.projectId) return cfg.projectId.replace(/[^a-z0-9]/gi,'-').toLowerCase().slice(0,20);
-  } catch {}
-  return 'domowa';
+function initNtfyTopic(projectId) {
+  const slug = projectId.replace(/[^a-z0-9]/gi, '-').toLowerCase().slice(0, 20);
+  NTFY_TOPIC = 'nasza-tablica-' + slug;
+  console.log('[ntfy] topic ustawiony:', NTFY_TOPIC);
+  // Przekaż temat do Service Workera
+  if (navigator.serviceWorker?.controller) {
+    navigator.serviceWorker.controller.postMessage({ type: 'NTFY_SUBSCRIBE', topic: NTFY_TOPIC });
+  }
+  navigator.serviceWorker?.ready.then(reg => {
+    (reg.active || reg.waiting)?.postMessage({ type: 'NTFY_SUBSCRIBE', topic: NTFY_TOPIC });
+  });
 }
 
 async function ntfyPush(title, body, priority = 3) {
+  if (!NTFY_TOPIC) { console.warn('[ntfy] brak tematu'); return; }
+  const url = `https://ntfy.sh/${NTFY_TOPIC}`;
+  console.log('[ntfy] wysylam:', url, title);
   try {
-    await fetch(`https://ntfy.sh/${NTFY_TOPIC}`, {
+    const res = await fetch(url, {
       method: 'POST',
       headers: {
-        'Title':    title,
-        'Priority': String(priority),
-        'Tags':     'pushpin',
+        'Title':        title,
+        'Priority':     String(priority),
+        'Tags':         'pushpin',
         'Content-Type': 'text/plain; charset=utf-8',
       },
       body: body,
     });
+    console.log('[ntfy] status:', res.status);
   } catch(e) {
-    console.warn('ntfy push failed:', e);
+    console.error('[ntfy] blad:', e.message);
   }
 }
 
@@ -89,6 +96,7 @@ window.startApp = async function() {
   const cfg = { apiKey, authDomain, projectId };
   saveConfig(cfg);
   saveAuthorLS({ name: currentAuthor, emoji: currentEmoji });
+  initNtfyTopic(projectId);
   try {
     await initFirebase(cfg);
     showApp();
@@ -437,6 +445,7 @@ window.addEventListener('appinstalled', () => {
   if (author) window.setAuthor(author.name, author.emoji);
   if (cfg?.apiKey && cfg?.projectId && author?.name) {
     currentAuthor = author.name; currentEmoji = author.emoji;
+    initNtfyTopic(cfg.projectId);
     initFirebase(cfg).then(showApp).catch(e => showError('Błąd: ' + e.message));
   }
 })();
