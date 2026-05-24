@@ -1,12 +1,12 @@
 // ─────────────────────────────────────────────────────────────
-//  app.js  –  Nasza Tablica v2  |  PWA + Reakcje + Deadline
+//  app.js  –  Nasza Tablica v3  |  ntfy.sh push notifications
 // ─────────────────────────────────────────────────────────────
-import { initializeApp }       from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { initializeApp }     from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getFirestore,
          collection, addDoc, deleteDoc, doc,
          onSnapshot, serverTimestamp,
          query, orderBy,
-         updateDoc, getDoc }   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+         updateDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 // ── Stałe ────────────────────────────────────────────────────
 const COLOR_MAP = {
@@ -17,11 +17,41 @@ const PIN_COLOR = {
   yellow:'#ca8a04', pink:'#db2777', blue:'#2563eb',
   green:'#16a34a',  orange:'#ea580c', lilac:'#7c3aed',
 };
-const REACTIONS = ['❤️','😂','👍','🎉','😘','🤔','😍','👀','✅','🔥'];
-const rotations = ['-rotate-2','-rotate-1','rotate-0','rotate-1','rotate-2','-rotate-3','rotate-3'];
+const REACTIONS  = ['❤️','😂','👍','🎉','😘','🤔','😍','👀','✅','🔥'];
+const rotations  = ['-rotate-2','-rotate-1','rotate-0','rotate-1','rotate-2','-rotate-3','rotate-3'];
 function rnd(arr) { return arr[Math.floor(Math.random()*arr.length)]; }
 
-// ── Stan ─────────────────────────────────────────────────────
+// ── ntfy ──────────────────────────────────────────────────────
+// Unikalny kanał – zmień na własną nazwę (bez spacji, małe litery)
+// WAŻNE: ta sama nazwa musi być wpisana w aplikacji ntfy na telefonie
+const NTFY_TOPIC = 'nasza-tablica-' + getProjectSlug();
+
+function getProjectSlug() {
+  try {
+    const cfg = JSON.parse(localStorage.getItem('nasza_tablica_config'));
+    if (cfg?.projectId) return cfg.projectId.replace(/[^a-z0-9]/gi,'-').toLowerCase().slice(0,20);
+  } catch {}
+  return 'domowa';
+}
+
+async function ntfyPush(title, body, priority = 3) {
+  try {
+    await fetch(`https://ntfy.sh/${NTFY_TOPIC}`, {
+      method: 'POST',
+      headers: {
+        'Title':    title,
+        'Priority': String(priority),
+        'Tags':     'pushpin',
+        'Content-Type': 'text/plain; charset=utf-8',
+      },
+      body: body,
+    });
+  } catch(e) {
+    console.warn('ntfy push failed:', e);
+  }
+}
+
+// ── Stan ──────────────────────────────────────────────────────
 let db = null, unsubscribe = null;
 let selectedColor = 'yellow';
 let currentAuthor = '', currentEmoji = '';
@@ -29,11 +59,10 @@ let emojiTargetId = null;
 let deferredInstallPrompt = null;
 
 // ── LocalStorage ─────────────────────────────────────────────
-const LS_CFG = 'nasza_tablica_config';
+const LS_CFG  = 'nasza_tablica_config';
 const LS_AUTH = 'nasza_tablica_author';
-const LS_NOTIF = 'nasza_tablica_last_notif';
-function saveConfig(c) { localStorage.setItem(LS_CFG, JSON.stringify(c)); }
-function loadConfig()  { try { return JSON.parse(localStorage.getItem(LS_CFG)); } catch { return null; } }
+function saveConfig(c)  { localStorage.setItem(LS_CFG,  JSON.stringify(c)); }
+function loadConfig()   { try { return JSON.parse(localStorage.getItem(LS_CFG));  } catch { return null; } }
 function saveAuthorLS(a){ localStorage.setItem(LS_AUTH, JSON.stringify(a)); }
 function loadAuthorLS() { try { return JSON.parse(localStorage.getItem(LS_AUTH)); } catch { return null; } }
 
@@ -41,10 +70,12 @@ function loadAuthorLS() { try { return JSON.parse(localStorage.getItem(LS_AUTH))
 window.setAuthor = function(name, emoji) {
   currentAuthor = name; currentEmoji = emoji;
   document.querySelectorAll('.author-btn').forEach(b => {
-    b.classList.remove('bg-white/20','border-white'); b.classList.add('border-white/20');
+    b.classList.remove('bg-white/20','border-white');
+    b.classList.add('border-white/20');
   });
   const btn = document.getElementById(name === 'Ona' ? 'btn-ona' : 'btn-on');
-  btn.classList.add('bg-white/20','border-white'); btn.classList.remove('border-white/20');
+  btn.classList.add('bg-white/20','border-white');
+  btn.classList.remove('border-white/20');
 };
 
 // ── Start ─────────────────────────────────────────────────────
@@ -56,9 +87,12 @@ window.startApp = async function() {
   if (!currentAuthor)                        { showError('Wybierz, kim jesteś – Ona czy On?'); return; }
   document.getElementById('cfg-error').classList.add('hidden');
   const cfg = { apiKey, authDomain, projectId };
-  saveConfig(cfg); saveAuthorLS({ name: currentAuthor, emoji: currentEmoji });
-  try { await initFirebase(cfg); showApp(); }
-  catch(e) { showError('Błąd połączenia: ' + e.message); }
+  saveConfig(cfg);
+  saveAuthorLS({ name: currentAuthor, emoji: currentEmoji });
+  try {
+    await initFirebase(cfg);
+    showApp();
+  } catch(e) { showError('Błąd połączenia: ' + e.message); }
 };
 
 function showError(msg) {
@@ -66,14 +100,14 @@ function showError(msg) {
   el.textContent = msg; el.classList.remove('hidden');
 }
 
-// ── Firebase init ────────────────────────────────────────────
+// ── Firebase init ─────────────────────────────────────────────
 async function initFirebase(cfg) {
   const app = initializeApp(cfg);
   db = getFirestore(app);
   startListening();
 }
 
-// ── Real-time listener ───────────────────────────────────────
+// ── Real-time listener ────────────────────────────────────────
 let isFirstLoad = true;
 
 function startListening() {
@@ -85,11 +119,11 @@ function startListening() {
     const container = document.getElementById('notes-container');
     const loadingEl = document.getElementById('loading-state');
     const emptyEl   = document.getElementById('empty-state');
-
     loadingEl.classList.add('hidden');
 
     const existingIds  = new Set([...container.querySelectorAll('[data-note-id]')].map(e => e.dataset.noteId));
-    const firestoreIds = new Set(); snapshot.forEach(d => firestoreIds.add(d.id));
+    const firestoreIds = new Set();
+    snapshot.forEach(d => firestoreIds.add(d.id));
 
     // Usuń usunięte
     container.querySelectorAll('[data-note-id]').forEach(el => {
@@ -100,40 +134,30 @@ function startListening() {
       }
     });
 
-    // Dodaj nowe / zaktualizuj zmodyfikowane
+    // Dodaj nowe / zaktualizuj
     snapshot.docChanges().forEach(change => {
       if (change.type === 'added' && !existingIds.has(change.doc.id)) {
         container.prepend(buildNoteElement(change.doc.id, change.doc.data()));
-        // Powiadomienie o nowej karteczce od drugiej osoby
-        if (!isFirstLoad && change.doc.data().author !== currentAuthor) {
-          sendNotification(change.doc.data());
-        }
       }
       if (change.type === 'modified') {
         const old = container.querySelector(`[data-note-id="${change.doc.id}"]`);
-        if (old) {
-          const newEl = buildNoteElement(change.doc.id, change.doc.data());
-          old.replaceWith(newEl);
-        }
+        if (old) old.replaceWith(buildNoteElement(change.doc.id, change.doc.data()));
       }
     });
 
     isFirstLoad = false;
-
     emptyEl.classList.toggle('hidden', firestoreIds.size > 0);
     emptyEl.classList.toggle('flex',   firestoreIds.size === 0);
-
-    // Sprawdź deadliny
     snapshot.forEach(d => checkDeadlineAlert(d.id, d.data()));
-  }, err => { showToast('Błąd Firestore: ' + err.message, true); });
+  }, err => showToast('Błąd Firestore: ' + err.message, true));
 }
 
-// ── Budowanie karteczki ──────────────────────────────────────
+// ── Budowanie karteczki ───────────────────────────────────────
 function buildNoteElement(id, data) {
-  const color  = data.color || 'yellow';
-  const bg     = COLOR_MAP[color] || COLOR_MAP.yellow;
-  const pin    = PIN_COLOR[color] || '#ca8a04';
-  const rot    = rnd(rotations);
+  const color = data.color || 'yellow';
+  const bg    = COLOR_MAP[color] || COLOR_MAP.yellow;
+  const pin   = PIN_COLOR[color] || '#ca8a04';
+  const rot   = rnd(rotations);
 
   const wrapper = document.createElement('div');
   wrapper.style.breakInside = 'avoid';
@@ -141,7 +165,6 @@ function buildNoteElement(id, data) {
   wrapper.dataset.noteId = id;
   wrapper.classList.add('note-appear');
 
-  // Czas
   let timeStr = '';
   if (data.createdAt?.toDate) {
     const d = data.createdAt.toDate();
@@ -149,35 +172,24 @@ function buildNoteElement(id, data) {
             + ' ' + d.toLocaleTimeString('pl-PL',{hour:'2-digit',minute:'2-digit'});
   }
 
-  // Deadline
   let deadlineHtml = '';
   if (data.deadline) {
-    const dl    = new Date(data.deadline);
-    const now   = new Date();
-    const diff  = dl - now;
+    const dl = new Date(data.deadline);
+    const diff = dl - new Date();
     const hoursLeft = diff / 36e5;
     let cls, label;
-    if (diff < 0) {
-      cls = 'deadline-overdue'; label = '⚠️ Przeterminowane';
-    } else if (hoursLeft < 24) {
-      cls = 'deadline-soon';
-      label = `⏰ Za ${Math.round(hoursLeft)}h`;
-    } else {
-      cls = 'deadline-ok';
-      label = `📅 ${dl.toLocaleDateString('pl-PL',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}`;
-    }
+    if      (diff < 0)         { cls = 'deadline-overdue'; label = '⚠️ Przeterminowane'; }
+    else if (hoursLeft < 24)   { cls = 'deadline-soon';    label = `⏰ Za ${Math.round(hoursLeft)}h`; }
+    else                       { cls = 'deadline-ok';      label = `📅 ${dl.toLocaleDateString('pl-PL',{day:'numeric',month:'short'})}`; }
     deadlineHtml = `<div class="deadline-badge ${cls}">${label}</div>`;
   }
 
-  // Reakcje
   const reactions = data.reactions || {};
   const reactionPills = Object.entries(reactions).map(([emoji, users]) => {
-    const count = users.length;
-    const mine  = users.includes(currentAuthor);
-    return `<span class="reaction-pill ${mine?'mine':''}" onclick="toggleReaction('${id}','${emoji}')">${emoji} <span>${count}</span></span>`;
+    const mine = users.includes(currentAuthor);
+    return `<span class="reaction-pill ${mine?'mine':''}" onclick="toggleReaction('${id}','${emoji}')">${emoji} <span>${users.length}</span></span>`;
   }).join('');
 
-  // Czy wygasła
   const expired = data.deadline && new Date(data.deadline) < new Date();
 
   wrapper.innerHTML = `
@@ -192,14 +204,12 @@ function buildNoteElement(id, data) {
       ${data.title ? `<h3 class="font-handwritten font-bold text-lg text-gray-800 leading-tight mb-1">${escHtml(data.title)}</h3>` : ''}
       <p class="font-handwritten text-base text-gray-700 leading-snug whitespace-pre-wrap">${escHtml(data.content)}</p>
       ${deadlineHtml}
-      <!-- Reakcje -->
       <div class="reaction-bar mt-2">
         ${reactionPills}
         <span class="reaction-add" onclick="openEmojiModal('${id}')">＋</span>
       </div>
       ${timeStr ? `<p class="text-right text-gray-400 text-xs font-body mt-1 opacity-70">${timeStr}</p>` : ''}
-    </div>
-  `;
+    </div>`;
   return wrapper;
 }
 
@@ -207,12 +217,13 @@ function escHtml(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
-// ── Zapis notatki ────────────────────────────────────────────
+// ── Zapis notatki ─────────────────────────────────────────────
 window.saveNote = async function() {
   const title    = document.getElementById('note-title').value.trim();
   const content  = document.getElementById('note-content').value.trim();
   const deadline = document.getElementById('note-deadline').value;
   if (!content) { document.getElementById('note-content').focus(); return; }
+
   try {
     await addDoc(collection(db, 'notes'), {
       title, content, color: selectedColor,
@@ -221,18 +232,25 @@ window.saveNote = async function() {
       reactions: {},
       createdAt: serverTimestamp(),
     });
-    closeModal(); showToast('Karteczka przypięta! 📌');
+    closeModal();
+    showToast('Karteczka przypięta! 📌');
+
+    // 🔔 Wyślij push przez ntfy do drugiej osoby
+    const pushTitle = `${currentEmoji} ${currentAuthor} dodał/a karteczkę`;
+    const pushBody  = title ? `${title}: ${content.slice(0,80)}` : content.slice(0,100);
+    await ntfyPush(pushTitle, pushBody, 4);
+
   } catch(e) { showToast('Błąd zapisu: ' + e.message, true); }
 };
 
-// ── Usuwanie ─────────────────────────────────────────────────
+// ── Usuwanie ──────────────────────────────────────────────────
 window.deleteNote = async function(id) {
   if (!confirm('Usunąć tę karteczkę?')) return;
   try { await deleteDoc(doc(db, 'notes', id)); }
   catch(e) { showToast('Błąd usuwania: ' + e.message, true); }
 };
 
-// ── Reakcje ──────────────────────────────────────────────────
+// ── Reakcje ───────────────────────────────────────────────────
 window.openEmojiModal = function(noteId) {
   emojiTargetId = noteId;
   const container = document.getElementById('emoji-options');
@@ -263,68 +281,41 @@ window.toggleReaction = async function(noteId, emoji) {
     if (!snap.exists()) return;
     const reactions = snap.data().reactions || {};
     const users     = reactions[emoji] || [];
-    let updated;
-    if (users.includes(currentAuthor)) {
-      updated = users.filter(u => u !== currentAuthor);
-    } else {
-      updated = [...users, currentAuthor];
-    }
+    const updated   = users.includes(currentAuthor)
+      ? users.filter(u => u !== currentAuthor)
+      : [...users, currentAuthor];
     const newReactions = { ...reactions, [emoji]: updated };
-    if (newReactions[emoji].length === 0) delete newReactions[emoji];
+    if (!newReactions[emoji].length) delete newReactions[emoji];
     await updateDoc(ref, { reactions: newReactions });
+
+    // Push reakcji do drugiej osoby
+    if (!users.includes(currentAuthor)) {
+      const noteData = snap.data();
+      await ntfyPush(
+        `${emoji} Reakcja od ${currentEmoji} ${currentAuthor}`,
+        noteData.title || noteData.content.slice(0,60),
+        2
+      );
+    }
   } catch(e) { showToast('Błąd reakcji: ' + e.message, true); }
 };
 
-// ── Deadline alert (sprawdza co minutę) ──────────────────────
+// ── Deadline alert ────────────────────────────────────────────
 const alertedDeadlines = new Set();
-
 function checkDeadlineAlert(id, data) {
   if (!data.deadline || alertedDeadlines.has(id)) return;
-  const dl   = new Date(data.deadline);
-  const diff = dl - new Date();
-  if (diff > 0 && diff < 60 * 60 * 1000) { // < 1h
+  const diff = new Date(data.deadline) - new Date();
+  if (diff > 0 && diff < 60 * 60 * 1000) {
     alertedDeadlines.add(id);
-    showToast(`⏰ Termin karteczki "${data.title||data.content.slice(0,20)}" za mniej niż godzinę!`, false);
-    sendNotification(data, true);
+    const label = data.title || data.content.slice(0,20);
+    showToast(`⏰ Termin "${label}" za mniej niż godzinę!`);
+    ntfyPush('⏰ Nadchodzący termin!', `Karteczka "${label}" wygasa za mniej niż godzinę.`, 5);
   }
 }
-
 setInterval(() => {
-  const container = document.getElementById('notes-container');
-  if (!container || !db) return;
-  // odśwież badge na karteczkach (co minutę)
-  container.querySelectorAll('[data-note-id]').forEach(el => {
-    const badge = el.querySelector('.deadline-badge');
-    // odśwież tylko jeśli jest termin
-    if (badge) el.classList.toggle('note-expired',
-      el.querySelector('.deadline-overdue') !== null);
-  });
+  if (!db) return;
+  alertedDeadlines.clear(); // odśwież co minutę
 }, 60000);
-
-// ── Powiadomienia push ───────────────────────────────────────
-async function requestNotifPermission() {
-  if (!('Notification' in window)) return;
-  if (Notification.permission === 'default') {
-    await Notification.requestPermission();
-  }
-}
-
-function sendNotification(data, isDeadline = false) {
-  if (!('Notification' in window) || Notification.permission !== 'granted') return;
-  const title = isDeadline
-    ? '⏰ Termin za mniej niż godzinę!'
-    : `${data.emoji || ''} Nowa karteczka od ${data.author}`;
-  const body = data.title
-    ? `${data.title}: ${data.content.slice(0,60)}`
-    : data.content.slice(0,80);
-  const n = new Notification(title, {
-    body,
-    icon: 'icon-192.png',
-    badge: 'icon-192.png',
-    tag: isDeadline ? `deadline-${Date.now()}` : 'new-note',
-  });
-  n.onclick = () => { window.focus(); n.close(); };
-}
 
 // ── Modal ─────────────────────────────────────────────────────
 window.openModal = function() {
@@ -361,7 +352,9 @@ function showApp() {
   document.getElementById('app').classList.add('flex');
   document.getElementById('header-author').textContent =
     `zalogowana/y jako: ${currentEmoji} ${currentAuthor}`;
-  requestNotifPermission();
+  // Pokaż temat ntfy w headerze
+  document.getElementById('ntfy-topic-display').textContent = NTFY_TOPIC;
+  document.getElementById('ntfy-info').classList.remove('hidden');
 }
 
 window.showConfig = function() {
@@ -370,6 +363,10 @@ window.showConfig = function() {
   document.getElementById('config-screen').style.display = 'flex';
   document.getElementById('app').classList.add('hidden');
   document.getElementById('app').classList.remove('flex');
+};
+
+window.copyNtfyTopic = function() {
+  navigator.clipboard.writeText(NTFY_TOPIC).then(() => showToast('Skopiowano nazwę kanału! 📋'));
 };
 
 // ── Toast ─────────────────────────────────────────────────────
@@ -385,10 +382,24 @@ function showToast(msg, isError = false) {
   }, 3000);
 }
 
-// ── PWA: Service Worker ───────────────────────────────────────
+// ── PWA: Service Worker + ntfy background subscription ───────
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('sw.js').catch(() => {});
+  window.addEventListener('load', async () => {
+    try {
+      const reg = await navigator.serviceWorker.register('sw.js');
+      // Poczekaj aż SW będzie aktywny, potem wyślij temat ntfy
+      await navigator.serviceWorker.ready;
+      const sw = reg.active || reg.waiting || reg.installing;
+      if (sw) {
+        sw.postMessage({ type: 'NTFY_SUBSCRIBE', topic: NTFY_TOPIC });
+      }
+      // Też wyślij gdy SW się aktywuje
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        navigator.serviceWorker.controller?.postMessage({ type: 'NTFY_SUBSCRIBE', topic: NTFY_TOPIC });
+      });
+    } catch(e) {
+      console.warn('SW registration failed:', e);
+    }
   });
 }
 
@@ -396,10 +407,8 @@ if ('serviceWorker' in navigator) {
 window.addEventListener('beforeinstallprompt', (e) => {
   e.preventDefault();
   deferredInstallPrompt = e;
-  const banner = document.getElementById('install-banner');
-  setTimeout(() => banner.classList.add('visible'), 2000);
+  setTimeout(() => document.getElementById('install-banner').classList.add('visible'), 2000);
 });
-
 document.getElementById('install-btn').addEventListener('click', async () => {
   if (!deferredInstallPrompt) return;
   deferredInstallPrompt.prompt();
@@ -408,11 +417,9 @@ document.getElementById('install-btn').addEventListener('click', async () => {
   deferredInstallPrompt = null;
   document.getElementById('install-banner').classList.remove('visible');
 });
-
 window.dismissInstall = function() {
   document.getElementById('install-banner').classList.remove('visible');
 };
-
 window.addEventListener('appinstalled', () => {
   document.getElementById('install-banner').classList.remove('visible');
   showToast('Aplikacja zainstalowana! 🎉');
