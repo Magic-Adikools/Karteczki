@@ -217,7 +217,7 @@ async function sendGlobalPushNotification(title, message) {
         headers: {
           'Content-Type': 'application/json',
           'webpushrKey': 'BDGVmOsC9bGhqEc79-gvEJabplM5CXF7d9zzpUHcR_pmwR1sMJaPUSRWAfXyB6k0Na5rd5BXL6nvZcfMbYkAB0c', 
-          'webpushrAuthToken': 'TUTAJ_WSTAW_SWÓJ_ODSŁONITY_REST_API_KEY' // Twój token, który odsłoniłeś wcześniej
+          'webpushrAuthToken': 74c7b32163484a0c553fdc7601459228
         },
         body: JSON.stringify({
           title: title,
