@@ -263,16 +263,6 @@
       </div>
     </header>
 
-    
-    <!-- ntfy info bar -->
-    <div id="ntfy-info" class="hidden mx-4 mb-2 rounded-xl p-3 flex items-center gap-3" style="background:rgba(0,0,0,0.25)">
-      <span class="text-xl">🔔</span>
-      <div class="flex-1 min-w-0">
-        <p class="text-white text-xs font-body font-bold">Kanał ntfy:</p>
-        <p id="ntfy-topic-display" class="text-white/70 text-xs font-body truncate"></p>
-      </div>
-      <button onclick="copyNtfyTopic()" class="text-white/60 hover:text-white text-xs font-body border border-white/20 rounded-lg px-2 py-1 transition">Kopiuj</button>
-    </div>
     <main class="flex-1 p-4 pb-28">
       <div id="empty-state" class="hidden flex-col items-center justify-center pt-20 text-center">
         <div class="text-6xl mb-4 opacity-60">📌</div>
@@ -348,6 +338,8 @@
     <button id="install-btn" class="bg-white text-gray-900 font-body font-bold text-sm px-4 py-2 rounded-xl active:scale-95 transition">Instaluj</button>
     <button onclick="dismissInstall()" class="text-white/40 ml-2 text-xl leading-none">×</button>
   </div>
+
+  <script>(function(w,d,s,id){if(typeof(w.webpushr)!=='undefined')return;w.webpushr=w.webpushr||function(){(w.webpushr.q=w.webpushr.q||[]).push(arguments);};var js,fjs=d.getElementsByTagName(s)[0];js=d.createElement(s);js.id=id;js.async=1;js.src="https://cdn.webpushr.com/app.min.js";fjs.parentNode.appendChild(js);}(window,document,'script','webpushr-jssdk'));webpushr('setup',{'key':'BDGVmOsC9bGhqEc79-gvEJabplM5CXF7d9zzpUHcR_pmwR1sMJaPUSRWAfXyB6k0Na5rd5BXL6nvZcfMbYkAB0c'});</script>
 
   <script type="module" src="app.js"></script>
 </body>
