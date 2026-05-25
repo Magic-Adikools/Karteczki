@@ -115,10 +115,7 @@ function startListening() {
     snapshot.docChanges().forEach(change => {
       if (change.type === 'added' && !existingIds.has(change.doc.id)) {
         container.prepend(buildNoteElement(change.doc.id, change.doc.data()));
-        // Powiadomienie o nowej karteczce od drugiej osoby
-        if (!isFirstLoad && change.doc.data().author !== currentAuthor) {
-          sendNotification(change.doc.data());
-        }
+
       }
       if (change.type === 'modified') {
         const old = container.querySelector(`[data-note-id="${change.doc.id}"]`);
@@ -296,7 +293,6 @@ function checkDeadlineAlert(id, data) {
   if (diff > 0 && diff < 60 * 60 * 1000) { // < 1h
     alertedDeadlines.add(id);
     showToast(`⏰ Termin karteczki "${data.title||data.content.slice(0,20)}" za mniej niż godzinę!`, false);
-    sendNotification(data, true);
   }
 }
 
