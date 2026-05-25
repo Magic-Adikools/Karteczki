@@ -18,6 +18,34 @@ const PIN_COLOR = {
   green:'#16a34a',  orange:'#ea580c', lilac:'#7c3aed',
 };
 const REACTIONS = ['❤️','😂','👍','🎉','😘','🤔','😍','👀','✅','🔥'];
+
+// ── Webpushr ──────────────────────────────────────────────────
+const WEBPUSHR_KEY   = '74c7b32163484a0c553fdc7601459228';
+const WEBPUSHR_TOKEN = '121585';
+
+async function webpushrSend(title, body) {
+  console.log('[webpushr] wysylam:', title, body);
+  try {
+    const res = await fetch('https://api.webpushr.com/v1/notification/send/all', {
+      method: 'POST',
+      headers: {
+        'webpushrKey':       WEBPUSHR_KEY,
+        'webpushrAuthToken': WEBPUSHR_TOKEN,
+        'Content-Type':      'application/json',
+      },
+      body: JSON.stringify({
+        title:      title,
+        message:    body,
+        target_url: 'https://magic-adikools.github.io/Karteczki/',
+        auto_hide:  1,
+      }),
+    });
+    const json = await res.json();
+    console.log('[webpushr] odpowiedz:', res.status, json);
+  } catch(e) {
+    console.error('[webpushr] blad:', e.message);
+  }
+}
 const rotations = ['-rotate-2','-rotate-1','rotate-0','rotate-1','rotate-2','-rotate-3','rotate-3'];
 function rnd(arr) { return arr[Math.floor(Math.random()*arr.length)]; }
 
@@ -206,33 +234,8 @@ function buildNoteElement(id, data) {
 function escHtml(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
-// ── Funkcja wysyłająca powiadomienie Push przez bezpieczny obiekt Webpushr ──
-async function sendGlobalPushNotification(title, message) {
-  try {
-    // Sprawdzamy, czy obiekt Webpushr jest załadowany na stronie
-    if (typeof webpushr !== 'undefined') {
-      webpushr('fetch', {
-        endpoint: 'https://api.webpushr.com/v1/notification/send/all',
-        method: 'POST',
-        headers: {
-  'Content-Type': 'application/json',
-  'webpushrKey': 'BDGVmOsC9bGhqEc79-gvEJabplM5CXF7d9zzpUHcR_pmwR1sMJaPUSRWAfXyB6k0Na5rd5BXL6nvZcfMbYkAB0c',
-  'webpushrAuthToken': '74c7b32163484a0c553fdc7601459228'
-},
-        body: JSON.stringify({
-          title: title,
-          message: message,
-          target_url: window.location.href
-        })
-      });
-      console.log("Sygnał Push wysłany do Webpushr");
-    } else {
-      console.warn("Obiekt webpushr nie jest jeszcze gotowy.");
-    }
-  } catch (e) {
-    console.error("Błąd wysyłania Webpushr Push: ", e);
-  }
-}// ── Zapis notatki ────────────────────────────────────────────
+
+// ── Zapis notatki ────────────────────────────────────────────
 window.saveNote = async function() {
   const title    = document.getElementById('note-title').value.trim();
   const content  = document.getElementById('note-content').value.trim();
@@ -247,13 +250,12 @@ window.saveNote = async function() {
       createdAt: serverTimestamp(),
     });
     closeModal(); showToast('Karteczka przypięta! 📌');
-    
-    // Logika powiadomień na oba telefony
-    const pushTitle = `${currentEmoji} Nowa wiadomość od: ${currentAuthor}`;
-    const pushBody = title ? `${title}: ${content}` : content;
-    // Ograniczamy długość tekstu w powiadomieniu do 80 znaków
-    sendGlobalPushNotification(pushTitle, pushBody.slice(0, 80));
-
+    // Push przez Webpushr
+    const noteTitle = document.getElementById('note-title')?.value?.trim() || '';
+    const noteBody  = noteTitle
+      ? `${noteTitle}: ${content.slice(0,80)}`
+      : content.slice(0,100);
+    await webpushrSend(`${currentEmoji} ${currentAuthor} dodał/a karteczkę`, noteBody);
   } catch(e) { showToast('Błąd zapisu: ' + e.message, true); }
 };
 
@@ -333,30 +335,7 @@ setInterval(() => {
   });
 }, 60000);
 
-// ── Powiadomienia push ───────────────────────────────────────
-async function requestNotifPermission() {
-  if (!('Notification' in window)) return;
-  if (Notification.permission === 'default') {
-    await Notification.requestPermission();
-  }
-}
-
-function sendNotification(data, isDeadline = false) {
-  if (!('Notification' in window) || Notification.permission !== 'granted') return;
-  const title = isDeadline
-    ? '⏰ Termin za mniej niż godzinę!'
-    : `${data.emoji || ''} Nowa karteczka od ${data.author}`;
-  const body = data.title
-    ? `${data.title}: ${data.content.slice(0,60)}`
-    : data.content.slice(0,80);
-  const n = new Notification(title, {
-    body,
-    icon: 'icon-192.png',
-    badge: 'icon-192.png',
-    tag: isDeadline ? `deadline-${Date.now()}` : 'new-note',
-  });
-  n.onclick = () => { window.focus(); n.close(); };
-}
+// ── Powiadomienia przez Webpushr SDK ───────────────────────
 
 // ── Modal ─────────────────────────────────────────────────────
 window.openModal = function() {
@@ -393,7 +372,25 @@ function showApp() {
   document.getElementById('app').classList.add('flex');
   document.getElementById('header-author').textContent =
     `zalogowana/y jako: ${currentEmoji} ${currentAuthor}`;
-  requestNotifPermission();
+  initWebpushr();
+}
+
+function initWebpushr() {
+  // Webpushr SDK – rejestruje użytkownika i pyta o zgodę na powiadomienia
+  window._webpushr_track = window._webpushr_track || function(){};
+  if (!document.getElementById('webpushr-sdk')) {
+    const script = document.createElement('script');
+    script.id  = 'webpushr-sdk';
+    script.src = 'https://cdn.webpushr.com/app.min.js';
+    script.onload = () => {
+      webpushr('setup', {
+        key: WEBPUSHR_KEY,
+        sw:  '/Karteczki/sw.js',
+      });
+      console.log('[webpushr] SDK zaladowany');
+    };
+    document.head.appendChild(script);
+  }
 }
 
 window.showConfig = function() {
@@ -420,7 +417,9 @@ function showToast(msg, isError = false) {
 // ── PWA: Service Worker ───────────────────────────────────────
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('sw.js').catch(() => {});
+    navigator.serviceWorker.register('/Karteczki/sw.js').catch(e => {
+      console.warn('SW registration failed:', e);
+    });
   });
 }
 
