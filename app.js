@@ -215,10 +215,10 @@ async function sendGlobalPushNotification(title, message) {
         endpoint: 'https://api.webpushr.com/v1/notification/send/all',
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'webpushrKey': 'BDGVmOsC9bGhqEc79-gvEJabplM5CXF7d9zzpUHcR_pmwR1sMJaPUSRWAfXyB6k0Na5rd5BXL6nvZcfMbYkAB0c', 
-          'webpushrAuthToken = '74c7b32163484a0c553fdc7601459228';
-        },
+  'Content-Type': 'application/json',
+  'webpushrKey': 'BDGVmOsC9bGhqEc79-gvEJabplM5CXF7d9zzpUHcR_pmwR1sMJaPUSRWAfXyB6k0Na5rd5BXL6nvZcfMbYkAB0c',
+  'webpushrAuthToken': '74c7b32163484a0c553fdc7601459228'
+},
         body: JSON.stringify({
           title: title,
           message: message,
