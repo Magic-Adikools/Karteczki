@@ -309,7 +309,6 @@ setInterval(() => {
 }, 60000);
 
 // ── FCM Push Notifications ───────────────────────────────────
-// Importowane dynamicznie po załadowaniu Firebase
 let fcmMessaging = null;
 
 async function initFCM() {
@@ -317,44 +316,41 @@ async function initFCM() {
     const { getMessaging, getToken, onMessage } = await import(
       'https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging.js'
     );
-    const app = (await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js')).getApp();
-    fcmMessaging = getMessaging(app);
+    const { getApp } = await import(
+      'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js'
+    );
 
-    // Rejestruj SW dla FCM
-    const swReg = await navigator.serviceWorker.register('/Karteczki/sw.js');
-    await navigator.serviceWorker.ready;
+    fcmMessaging = getMessaging(getApp());
 
-    // Pobierz token FCM
-    const cfg = loadConfig();
+    const swReg = await navigator.serviceWorker.ready;
+
     const token = await getToken(fcmMessaging, {
       vapidKey: 'BHUXtF6k8ZeXYioLXj2VVlcETyX8NB6tHMqlNeBOvKhmK6FlD-zcRU_oY39HjnVGL1RvaRkaf95XY0IlJEagxk8',
       serviceWorkerRegistration: swReg,
     });
 
     if (token) {
-      console.log('[FCM] token:', token.slice(0,20) + '...');
-      // Zapisz token w Firestore
-      const { getFirestore, doc, setDoc } = await import(
+      console.log('[FCM] token OK:', token.slice(0,20) + '...');
+      const { doc, setDoc } = await import(
         'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js'
       );
-      const db2 = getFirestore();
-      await setDoc(doc(db2, 'fcm_tokens', token.slice(0,40)), {
+      await setDoc(doc(db, 'fcm_tokens', token.slice(0, 40)), {
         token,
         author: currentAuthor,
         updatedAt: new Date().toISOString(),
       });
-      console.log('[FCM] token zapisany w Firestore');
+      console.log('[FCM] token zapisany');
       showToast('🔔 Powiadomienia włączone!');
+    } else {
+      console.warn('[FCM] brak tokena');
     }
 
-    // Powiadomienia gdy apka jest otwarta
     onMessage(fcmMessaging, (payload) => {
-      console.log('[FCM] wiadomość:', payload);
       showToast(`🔔 ${payload.notification?.title || 'Nowa karteczka!'}`);
     });
 
   } catch(e) {
-    console.warn('[FCM] błąd:', e.message);
+    console.error('[FCM] błąd:', e.message);
   }
 }
 
