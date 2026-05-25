@@ -18,34 +18,6 @@ const PIN_COLOR = {
   green:'#16a34a',  orange:'#ea580c', lilac:'#7c3aed',
 };
 const REACTIONS = ['❤️','😂','👍','🎉','😘','🤔','😍','👀','✅','🔥'];
-
-// ── Webpushr ──────────────────────────────────────────────────
-const WEBPUSHR_KEY   = '74c7b32163484a0c553fdc7601459228';
-const WEBPUSHR_TOKEN = '121585';
-
-async function webpushrSend(title, body) {
-  console.log('[webpushr] wysylam:', title, body);
-  try {
-    const res = await fetch('https://api.webpushr.com/v1/notification/send/all', {
-      method: 'POST',
-      headers: {
-        'webpushrKey':       WEBPUSHR_KEY,
-        'webpushrAuthToken': WEBPUSHR_TOKEN,
-        'Content-Type':      'application/json',
-      },
-      body: JSON.stringify({
-        title:      title,
-        message:    body,
-        target_url: 'https://magic-adikools.github.io/Karteczki/',
-        auto_hide:  1,
-      }),
-    });
-    const json = await res.json();
-    console.log('[webpushr] odpowiedz:', res.status, json);
-  } catch(e) {
-    console.error('[webpushr] blad:', e.message);
-  }
-}
 const rotations = ['-rotate-2','-rotate-1','rotate-0','rotate-1','rotate-2','-rotate-3','rotate-3'];
 function rnd(arr) { return arr[Math.floor(Math.random()*arr.length)]; }
 
@@ -250,12 +222,6 @@ window.saveNote = async function() {
       createdAt: serverTimestamp(),
     });
     closeModal(); showToast('Karteczka przypięta! 📌');
-    // Push przez Webpushr
-    const noteTitle = document.getElementById('note-title')?.value?.trim() || '';
-    const noteBody  = noteTitle
-      ? `${noteTitle}: ${content.slice(0,80)}`
-      : content.slice(0,100);
-    await webpushrSend(`${currentEmoji} ${currentAuthor} dodał/a karteczkę`, noteBody);
   } catch(e) { showToast('Błąd zapisu: ' + e.message, true); }
 };
 
@@ -335,7 +301,55 @@ setInterval(() => {
   });
 }, 60000);
 
-// ── Powiadomienia przez Webpushr SDK ───────────────────────
+// ── FCM Push Notifications ───────────────────────────────────
+// Importowane dynamicznie po załadowaniu Firebase
+let fcmMessaging = null;
+
+async function initFCM() {
+  try {
+    const { getMessaging, getToken, onMessage } = await import(
+      'https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging.js'
+    );
+    const app = (await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js')).getApp();
+    fcmMessaging = getMessaging(app);
+
+    // Rejestruj SW dla FCM
+    const swReg = await navigator.serviceWorker.register('/Karteczki/sw.js');
+    await navigator.serviceWorker.ready;
+
+    // Pobierz token FCM
+    const cfg = loadConfig();
+    const token = await getToken(fcmMessaging, {
+      vapidKey: 'BHUXtF6k8ZeXYioLXj2VVlcETyX8NB6tHMqlNeBOvKhmK6FlD-zcRU_oY39HjnVGL1RvaRkaf95XY0IlJEagxk8',
+      serviceWorkerRegistration: swReg,
+    });
+
+    if (token) {
+      console.log('[FCM] token:', token.slice(0,20) + '...');
+      // Zapisz token w Firestore
+      const { getFirestore, doc, setDoc } = await import(
+        'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js'
+      );
+      const db2 = getFirestore();
+      await setDoc(doc(db2, 'fcm_tokens', token.slice(0,40)), {
+        token,
+        author: currentAuthor,
+        updatedAt: new Date().toISOString(),
+      });
+      console.log('[FCM] token zapisany w Firestore');
+      showToast('🔔 Powiadomienia włączone!');
+    }
+
+    // Powiadomienia gdy apka jest otwarta
+    onMessage(fcmMessaging, (payload) => {
+      console.log('[FCM] wiadomość:', payload);
+      showToast(`🔔 ${payload.notification?.title || 'Nowa karteczka!'}`);
+    });
+
+  } catch(e) {
+    console.warn('[FCM] błąd:', e.message);
+  }
+}
 
 // ── Modal ─────────────────────────────────────────────────────
 window.openModal = function() {
@@ -372,24 +386,11 @@ function showApp() {
   document.getElementById('app').classList.add('flex');
   document.getElementById('header-author').textContent =
     `zalogowana/y jako: ${currentEmoji} ${currentAuthor}`;
-  initWebpushr();
-}
-
-function initWebpushr() {
-  // Webpushr SDK – rejestruje użytkownika i pyta o zgodę na powiadomienia
-  window._webpushr_track = window._webpushr_track || function(){};
-  if (!document.getElementById('webpushr-sdk')) {
-    const script = document.createElement('script');
-    script.id  = 'webpushr-sdk';
-    script.src = 'https://cdn.webpushr.com/app.min.js';
-    script.onload = () => {
-      webpushr('setup', {
-        key: WEBPUSHR_KEY,
-        sw:  '/Karteczki/sw.js',
-      });
-      console.log('[webpushr] SDK zaladowany');
-    };
-    document.head.appendChild(script);
+  // Inicjuj FCM po zalogowaniu
+  if ('serviceWorker' in navigator && 'Notification' in window) {
+    Notification.requestPermission().then(perm => {
+      if (perm === 'granted') initFCM();
+    });
   }
 }
 
