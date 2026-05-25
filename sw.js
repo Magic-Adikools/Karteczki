@@ -1,16 +1,60 @@
 // ─────────────────────────────────────────────────────────────
-//  sw.js  –  Nasza Tablica  |  Webpushr Service Worker
+//  sw.js  –  Nasza Tablica  |  Firebase Cloud Messaging
 // ─────────────────────────────────────────────────────────────
-importScripts('https://cdn.webpushr.com/sw-server.min.js');
+importScripts('https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js');
+importScripts('https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging-compat.js');
 
-const CACHE = 'tablica-v5';
-const ASSETS = ['./', './index.html', './app.js', './manifest.json', './icon-192.png'];
+// Config Firebase – uzupełnij swoimi danymi
+firebase.initializeApp({
+  apiKey:    "AIzaSyCazP8eaEu66_q05CJM_ay70r0g0YDnZaY",
+  authDomain:"karteczki-883d8.firebaseapp.com",
+  projectId: "karteczki-883d8",
+  messagingSenderId: "558209472773",
+  appId:     "1:558209472773:web:be7abb30669a1fdf71bf6c",
+});
+
+const messaging = firebase.messaging();
+
+// Obsługa powiadomień gdy apka jest w tle / zamknięta
+messaging.onBackgroundMessage((payload) => {
+  console.log('[SW FCM] background message:', payload);
+  const { title, body } = payload.notification || {};
+  self.registration.showNotification(title || '💌 Nasza Tablica', {
+    body:     body || '',
+    icon:     '/Karteczki/icon-192.png',
+    badge:    '/Karteczki/icon-192.png',
+    tag:      'tablica-note',
+    renotify: true,
+    data:     { url: 'https://magic-adikools.github.io/Karteczki/' },
+  });
+});
+
+// Kliknięcie powiadomienia otwiera aplikację
+self.addEventListener('notificationclick', e => {
+  e.notification.close();
+  const url = e.notification.data?.url || 'https://magic-adikools.github.io/Karteczki/';
+  e.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(cs => {
+      const existing = cs.find(c => c.url.startsWith('https://magic-adikools.github.io/Karteczki/'));
+      if (existing) return existing.focus();
+      return clients.openWindow(url);
+    })
+  );
+});
+
+// Cache
+const CACHE = 'tablica-v6';
+const ASSETS = [
+  '/Karteczki/',
+  '/Karteczki/index.html',
+  '/Karteczki/app.js',
+  '/Karteczki/manifest.json',
+  '/Karteczki/icon-192.png',
+];
 
 self.addEventListener('install', e => {
   e.waitUntil(
-    caches.open(CACHE)
-      .then(c => c.addAll(ASSETS))
-      .then(() => self.skipWaiting())
+    caches.open(CACHE).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting())
   );
 });
 
@@ -25,21 +69,8 @@ self.addEventListener('activate', e => {
 self.addEventListener('fetch', e => {
   const url = e.request.url;
   if (url.includes('firestore') || url.includes('googleapis') ||
-      url.includes('gstatic')   || url.includes('tailwindcss') ||
-      url.includes('webpushr'))  return;
+      url.includes('gstatic')   || url.includes('tailwindcss')) return;
   e.respondWith(
     caches.match(e.request).then(cached => cached || fetch(e.request))
-  );
-});
-
-self.addEventListener('notificationclick', e => {
-  e.notification.close();
-  const url = e.notification.data?.url || self.registration.scope;
-  e.waitUntil(
-    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(cs => {
-      const existing = cs.find(c => c.url.startsWith(self.registration.scope));
-      if (existing) return existing.focus();
-      return clients.openWindow(url);
-    })
   );
 });
