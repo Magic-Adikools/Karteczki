@@ -209,7 +209,7 @@ function escHtml(s) {
 // ── Funkcja wysyłająca powiadomienie Push przez API Webpushr ──
 async function sendGlobalPushNotification(title, message) {
   const webpushrKey = 'BDGVmOsC9bGhqEc79-gvEJabplM5CXF7d9zzpUHcR_pmwR1sMJaPUSRWAfXyB6k0Na5rd5BXL6nvZcfMbYkAB0c'; 
-  const webpushrAuthToken = '52195'; // Wyciągnięty z identyfikatora Twojej instalacji
+  const webpushrAuthToken = 74c7b32163484a0c553fdc7601459228
 
   try {
     await fetch('https://api.webpushr.com/v1/notification/send/all', {
