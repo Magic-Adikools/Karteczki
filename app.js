@@ -21,41 +21,36 @@ const REACTIONS  = ['❤️','😂','👍','🎉','😘','🤔','😍','👀','�
 const rotations  = ['-rotate-2','-rotate-1','rotate-0','rotate-1','rotate-2','-rotate-3','rotate-3'];
 function rnd(arr) { return arr[Math.floor(Math.random()*arr.length)]; }
 
-// ── ntfy ──────────────────────────────────────────────────────
-let NTFY_TOPIC = '';
+// ── Pushover ──────────────────────────────────────────────────
+const PUSHOVER_TOKEN   = 'aqwpam15q3r9prxdodx5coigcnk4nk';
+const PUSHOVER_USER    = 'ujrzkiqhdoo16vd9g95utr7v6a3igz';
+const PUSHOVER_API_URL = 'https://api.pushover.net/1/messages.json';
 
+// Alias żeby nie zmieniać reszty kodu
 function initNtfyTopic(projectId) {
-  const slug = projectId.replace(/[^a-z0-9]/gi, '-').toLowerCase().slice(0, 20);
-  NTFY_TOPIC = 'nasza-tablica-' + slug;
-  console.log('[ntfy] topic ustawiony:', NTFY_TOPIC);
-  // Przekaż temat do Service Workera
-  if (navigator.serviceWorker?.controller) {
-    navigator.serviceWorker.controller.postMessage({ type: 'NTFY_SUBSCRIBE', topic: NTFY_TOPIC });
-  }
-  navigator.serviceWorker?.ready.then(reg => {
-    (reg.active || reg.waiting)?.postMessage({ type: 'NTFY_SUBSCRIBE', topic: NTFY_TOPIC });
-  });
+  // Pushover nie potrzebuje tematu – nic do roboty
+  console.log('[pushover] gotowy');
 }
 
-async function ntfyPush(title, body, priority = 3) {
-  if (!NTFY_TOPIC) { console.warn('[ntfy] brak tematu'); return; }
-  const url = `https://ntfy.sh/${NTFY_TOPIC}`;
-  console.log('[ntfy] wysylam:', url, title);
+async function ntfyPush(title, body, priority = 0) {
+  console.log('[pushover] wysylam:', title, body);
   try {
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Title':         title,
-        'Priority':      String(priority),
-        'Tags':          'pushpin',
-        'Authorization': 'Bearer tk_8qn8ifug8x6pvl1xv570dqb1v379a',
-        'Content-Type':  'text/plain; charset=utf-8',
-      },
-      body: body,
+    const params = new URLSearchParams({
+      token:   PUSHOVER_TOKEN,
+      user:    PUSHOVER_USER,
+      title:   title,
+      message: body,
+      priority: String(priority),
     });
-    console.log('[ntfy] status:', res.status);
+    const res = await fetch(PUSHOVER_API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: params.toString(),
+    });
+    const json = await res.json();
+    console.log('[pushover] status:', res.status, json);
   } catch(e) {
-    console.error('[ntfy] blad:', e.message);
+    console.error('[pushover] blad:', e.message);
   }
 }
 
