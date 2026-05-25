@@ -67,15 +67,19 @@ function showError(msg) {
 }
 
 // ── Firebase init ────────────────────────────────────────────
+// Pełny config Firebase (wymagany przez FCM)
+const FIREBASE_FULL_CONFIG = {
+  apiKey:            'AIzaSyCazP8eaEu66_q05CJM_ay70r0g0YDnZaY',
+  authDomain:        'karteczki-883d8.firebaseapp.com',
+  projectId:         'karteczki-883d8',
+  storageBucket:     'karteczki-883d8.firebasestorage.app',
+  messagingSenderId: '558209472773',
+  appId:             '1:558209472773:web:be7abb30669a1fdf71bf6c',
+};
+
 async function initFirebase(cfg) {
-  // Dodaj brakujące pola wymagane przez FCM
-  const fullCfg = {
-    ...cfg,
-    messagingSenderId: '558209472773',
-    appId: '1:558209472773:web:be7abb30669a1fdf71bf6c',
-    storageBucket: 'karteczki-883d8.firebasestorage.app',
-  };
-  const app = initializeApp(fullCfg);
+  // Używamy pełnego config (FCM wymaga appId i messagingSenderId)
+  const app = initializeApp(FIREBASE_FULL_CONFIG);
   db = getFirestore(app);
   startListening();
 }
