@@ -206,30 +206,33 @@ function buildNoteElement(id, data) {
 function escHtml(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
-// ── Funkcja wysyłająca powiadomienie Push przez API Webpushr ──
+// ── Funkcja wysyłająca powiadomienie Push przez bezpieczny obiekt Webpushr ──
 async function sendGlobalPushNotification(title, message) {
-  const webpushrKey = 'BDGVmOsC9bGhqEc79-gvEJabplM5CXF7d9zzpUHcR_pmwR1sMJaPUSRWAfXyB6k0Na5rd5BXL6nvZcfMbYkAB0c'; 
-  const webpushrAuthToken = 74c7b32163484a0c553fdc7601459228
-
   try {
-    await fetch('https://api.webpushr.com/v1/notification/send/all', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'webpushrKey': webpushrKey,
-        'webpushrAuthToken': webpushrAuthToken
-      },
-      body: JSON.stringify({
-        title: title,
-        message: message,
-        target_url: window.location.href // Po kliknięciu w powiadomienie otworzy Waszą tablicę
-      })
-    });
+    // Sprawdzamy, czy obiekt Webpushr jest załadowany na stronie
+    if (typeof webpushr !== 'undefined') {
+      webpushr('fetch', {
+        endpoint: 'https://api.webpushr.com/v1/notification/send/all',
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'webpushrKey': 'BDGVmOsC9bGhqEc79-gvEJabplM5CXF7d9zzpUHcR_pmwR1sMJaPUSRWAfXyB6k0Na5rd5BXL6nvZcfMbYkAB0c', 
+          'webpushrAuthToken': 'TUTAJ_WSTAW_SWÓJ_ODSŁONITY_REST_API_KEY' // Twój token, który odsłoniłeś wcześniej
+        },
+        body: JSON.stringify({
+          title: title,
+          message: message,
+          target_url: window.location.href
+        })
+      });
+      console.log("Sygnał Push wysłany do Webpushr");
+    } else {
+      console.warn("Obiekt webpushr nie jest jeszcze gotowy.");
+    }
   } catch (e) {
     console.error("Błąd wysyłania Webpushr Push: ", e);
   }
-}
-// ── Zapis notatki ────────────────────────────────────────────
+}// ── Zapis notatki ────────────────────────────────────────────
 window.saveNote = async function() {
   const title    = document.getElementById('note-title').value.trim();
   const content  = document.getElementById('note-content').value.trim();
