@@ -68,7 +68,14 @@ function showError(msg) {
 
 // ── Firebase init ────────────────────────────────────────────
 async function initFirebase(cfg) {
-  const app = initializeApp(cfg);
+  // Dodaj brakujące pola wymagane przez FCM
+  const fullCfg = {
+    ...cfg,
+    messagingSenderId: '558209472773',
+    appId: '1:558209472773:web:be7abb30669a1fdf71bf6c',
+    storageBucket: 'karteczki-883d8.firebasestorage.app',
+  };
+  const app = initializeApp(fullCfg);
   db = getFirestore(app);
   startListening();
 }
