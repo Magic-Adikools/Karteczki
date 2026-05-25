@@ -1,37 +1,45 @@
-// Service Worker – Nasza Tablica PWA
-const CACHE = 'tablica-v2';
-const ASSETS = [
-  './',
-  './index.html',
-  './app.js',
-  './manifest.json',
-];
+// ─────────────────────────────────────────────────────────────
+//  sw.js  –  Nasza Tablica  |  Webpushr Service Worker
+// ─────────────────────────────────────────────────────────────
+importScripts('https://cdn.webpushr.com/sw-server.min.js');
+
+const CACHE = 'tablica-v5';
+const ASSETS = ['./', './index.html', './app.js', './manifest.json', './icon-192.png'];
 
 self.addEventListener('install', e => {
   e.waitUntil(
-    caches.open(CACHE).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting())
+    caches.open(CACHE)
+      .then(c => c.addAll(ASSETS))
+      .then(() => self.skipWaiting())
   );
 });
 
 self.addEventListener('activate', e => {
   e.waitUntil(
-    caches.keys().then(keys =>
-      Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))
-    ).then(() => self.clients.claim())
+    caches.keys()
+      .then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k))))
+      .then(() => self.clients.claim())
   );
 });
 
 self.addEventListener('fetch', e => {
-  // Firestore / CDN – zawsze sieć
-  if (e.request.url.includes('firestore') ||
-      e.request.url.includes('googleapis') ||
-      e.request.url.includes('gstatic') ||
-      e.request.url.includes('tailwindcss')) {
-    return;
-  }
+  const url = e.request.url;
+  if (url.includes('firestore') || url.includes('googleapis') ||
+      url.includes('gstatic')   || url.includes('tailwindcss') ||
+      url.includes('webpushr'))  return;
   e.respondWith(
     caches.match(e.request).then(cached => cached || fetch(e.request))
   );
 });
-// Integracja Webpushr do obsługi powiadomień w tle
-importScripts('https://cdn.webpushr.com/sw-server.min.js');
+
+self.addEventListener('notificationclick', e => {
+  e.notification.close();
+  const url = e.notification.data?.url || self.registration.scope;
+  e.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(cs => {
+      const existing = cs.find(c => c.url.startsWith(self.registration.scope));
+      if (existing) return existing.focus();
+      return clients.openWindow(url);
+    })
+  );
+});
