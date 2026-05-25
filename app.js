@@ -329,7 +329,7 @@ async function initFCM() {
     const swReg = await navigator.serviceWorker.ready;
 
     const token = await getToken(fcmMessaging, {
-      vapidKey: 'BHUXtF6k8ZeXYioLXj2VVlcETyX8NB6tHMqlNeBOvKhmK6FlD-zcRU_oY39HjnVGL1RvaRkaf95XY0IlJEagxk8',
+      vapidKey: 'BHUXtF6k8ZeXYIoLXj2VVlcETyX8NB6tHMqINeB0vKhmK6FlD-zcRU_oY39HjnVGL1RvaRkaf95XY0llJEagxk8',
       serviceWorkerRegistration: swReg,
     });
 
