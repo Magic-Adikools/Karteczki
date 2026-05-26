@@ -92,7 +92,6 @@ function startListening() {
 
     loadingEl.classList.add('hidden');
 
-    const existingIds  = new Set([...container.querySelectorAll('[data-note-id]')].map(e => e.dataset.noteId));
     const firestoreIds = new Set(); snapshot.forEach(d => firestoreIds.add(d.id));
 
     // Usuń usunięte
@@ -106,8 +105,9 @@ function startListening() {
 
     // Dodaj nowe / zaktualizuj zmodyfikowane
     snapshot.docChanges().forEach(change => {
-      if (change.type === 'added' && !existingIds.has(change.doc.id)) {
-        container.prepend(buildNoteElement(change.doc.id, change.doc.data()));
+      if (change.type === 'added') {
+        const exist = container.querySelector(`[data-note-id="${change.doc.id}"]`);
+        if (!exist) container.prepend(buildNoteElement(change.doc.id, change.doc.data()));
       }
       if (change.type === 'modified') {
         const old = container.querySelector(`[data-note-id="${change.doc.id}"]`);
@@ -301,10 +301,7 @@ let fcmMessaging = null;
 
 async function initFCM() {
   try {
-    if (!currentAuthor) {
-      console.warn('[FCM] Próba inicjalizacji bez wybranego autora. Przerywam.');
-      return;
-    }
+    if (!currentAuthor) return;
 
     const { getMessaging, getToken, onMessage } = await import(
       'https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging.js'
@@ -319,18 +316,14 @@ async function initFCM() {
     });
 
     if (token) {
-      console.log('[FCM] token OK:', token.slice(0,20) + '...');
-      const safeTokenId = btoa(token).replace(/[/+=]/g, '_');
-      
-      await setDoc(doc(db, 'fcm_tokens', safeTokenId), {
+      // NAPRAWA: Zapisujemy pod kluczem autora (On / Ona) zamiast tokenu.
+      // Zapobiega to wzajemnemu wylogowywaniu się urządzeń.
+      await setDoc(doc(db, 'fcm_tokens', currentAuthor), {
         token,
         author: currentAuthor,
         updatedAt: new Date().toISOString(),
       });
-      console.log('[FCM] token zapisany dla użytkownika:', currentAuthor);
       showToast('🔔 Powiadomienia włączone!');
-    } else {
-      console.warn('[FCM] brak tokena');
     }
 
     onMessage(fcmMessaging, (payload) => {
@@ -357,12 +350,115 @@ async function sendPushToPartner(title, body) {
           },
           body: JSON.stringify({
             to: data.token,
-            notification: {
-              title: title,
-              body: body,
-              icon: '/Karteczki/icon-192.png',
-              click_action: 'https://magic-adikools.github.io/Karteczki/'
-            }
+            notification: { title, body, icon: '/Karteczki/icon-192.png', click_action: 'https://magic-adikools.github.io/Karteczki/' }
           })
         });
-        console.log(`[FCM] W
+      }
+    });
+  } catch (e) {
+    console.error('[FCM] Błąd pusha:', e);
+  }
+}
+
+// ── Modal ─────────────────────────────────────────────────────
+window.openModal = function() {
+  document.getElementById('modal').classList.remove('hidden');
+  document.getElementById('modal').classList.add('flex');
+  selectColor(document.querySelector('[data-color="yellow"]'), 'yellow');
+  document.getElementById('note-title').value    = '';
+  document.getElementById('note-content').value  = '';
+  document.getElementById('note-deadline').value = '';
+  updateModalBg();
+  setTimeout(() => document.getElementById('note-content').focus(), 100);
+};
+window.closeModal = function() {
+  document.getElementById('modal').classList.add('hidden');
+  document.getElementById('modal').classList.remove('flex');
+};
+window.selectColor = function(el, color) {
+  selectedColor = color;
+  document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('selected'));
+  el.classList.add('selected');
+  updateModalBg();
+};
+function updateModalBg() {
+  document.getElementById('modal-inner').style.background = COLOR_MAP[selectedColor] || '#fffde7';
+}
+document.getElementById('modal').addEventListener('click', function(e) {
+  if (e.target === this) closeModal();
+});
+
+// ── Show App ──────────────────────────────────────────────────
+function showApp() {
+  document.getElementById('config-screen').style.display = 'none';
+  document.getElementById('app').classList.remove('hidden');
+  document.getElementById('app').classList.add('flex');
+  document.getElementById('header-author').textContent =
+    `zalogowana/y jako: ${currentEmoji} ${currentAuthor}`;
+  
+  if ('serviceWorker' in navigator && 'Notification' in window) {
+    Notification.requestPermission().then(perm => {
+      if (perm === 'granted') initFCM();
+    });
+  }
+}
+
+window.showConfig = function() {
+  if (!confirm('Wylogować się i wrócić do konfiguracji?')) return;
+  if (unsubscribe) unsubscribe();
+  localStorage.removeItem(LS_AUTH); // Czyścimy przy wylogowaniu
+  document.getElementById('config-screen').style.display = 'flex';
+  document.getElementById('app').classList.add('hidden');
+  document.getElementById('app').classList.remove('flex');
+};
+
+// ── Toast ─────────────────────────────────────────────────────
+function showToast(msg, isError = false) {
+  const el = document.createElement('div');
+  el.className = `fixed bottom-24 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-full text-white text-sm font-body font-bold shadow-xl transition-all ${isError?'bg-red-500':'bg-gray-900'}`;
+  el.style.whiteSpace = 'nowrap'; el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(() => {
+    el.style.opacity = '0'; el.style.transform = 'translate(-50%, 8px)';
+    setTimeout(() => el.remove(), 400);
+  }, 3000);
+}
+
+// ── PWA: Service Worker ───────────────────────────────────────
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/Karteczki/sw.js').catch(e => {
+      console.warn('SW registration failed:', e);
+    });
+  });
+}
+
+// ── PWA: Install Banner ───────────────────────────────────────
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault(); deferredInstallPrompt = e;
+  const banner = document.getElementById('install-banner');
+  setTimeout(() => banner.classList.add('visible'), 2000);
+});
+
+document.getElementById('install-btn').addEventListener('click', async () => {
+  if (!deferredInstallPrompt) return;
+  deferredInstallPrompt.prompt();
+  const { outcome } = await deferredInstallPrompt.userChoice;
+  if (outcome === 'accepted') showToast('Aplikacja zainstalowana! 🎉');
+  deferredInstallPrompt = null;
+  document.getElementById('install-banner').classList.remove('visible');
+});
+
+window.dismissInstall = function() {
+  document.getElementById('install-banner').classList.remove('visible');
+};
+
+// ── Auto-start ────────────────────────────────────────────────
+(function autoStart() {
+  const author = loadAuthorLS();
+  if (author) {
+    window.setAuthor(author.name, author.emoji);
+    currentAuthor = author.name; currentEmoji = author.emoji;
+    initFirebase().then(showApp).catch(e => showError('Błąd auto-startu: ' + e.message));
+  }
+})();
