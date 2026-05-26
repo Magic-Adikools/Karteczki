@@ -29,10 +29,7 @@ let emojiTargetId = null;
 let deferredInstallPrompt = null;
 
 // ── LocalStorage ─────────────────────────────────────────────
-const LS_CFG = 'nasza_tablica_config';
 const LS_AUTH = 'nasza_tablica_author';
-function saveConfig(c) { localStorage.setItem(LS_CFG, JSON.stringify(c)); }
-function loadConfig()  { try { return JSON.parse(localStorage.getItem(LS_CFG)); } catch { return null; } }
 function saveAuthorLS(a){ localStorage.setItem(LS_AUTH, JSON.stringify(a)); }
 function loadAuthorLS() { try { return JSON.parse(localStorage.getItem(LS_AUTH)); } catch { return null; } }
 
@@ -46,17 +43,16 @@ window.setAuthor = function(name, emoji) {
   btn.classList.add('bg-white/20','border-white'); btn.classList.remove('border-white/20');
 };
 
-// ── Start ─────────────────────────────────────────────────────
+// ── Start (Ignoruje pola tekstowe, bierze config z kodu) ───
 window.startApp = async function() {
-  const apiKey     = document.getElementById('cfg-apiKey').value.trim();
-  const authDomain = document.getElementById('cfg-authDomain').value.trim();
-  const projectId  = document.getElementById('cfg-projectId').value.trim();
-  if (!apiKey || !authDomain || !projectId) { showError('Uzupełnij wszystkie pola Firebase.'); return; }
-  if (!currentAuthor)                        { showError('Wybierz, kim jesteś – Ona czy On?'); return; }
+  if (!currentAuthor) { showError('Wybierz, kim jesteś – Ona czy On?'); return; }
   document.getElementById('cfg-error').classList.add('hidden');
-  const cfg = { apiKey, authDomain, projectId };
-  saveConfig(cfg); saveAuthorLS({ name: currentAuthor, emoji: currentEmoji });
-  try { await initFirebase(cfg); showApp(); }
+  
+  saveAuthorLS({ name: currentAuthor, emoji: currentEmoji });
+  try { 
+    await initFirebase(); 
+    showApp(); 
+  }
   catch(e) { showError('Błąd połączenia: ' + e.message); }
 };
 
@@ -75,7 +71,7 @@ const FIREBASE_FULL_CONFIG = {
   appId:             '1:558209472773:web:be7abb30669a1fdf71bf6c',
 };
 
-async function initFirebase(cfg) {
+async function initFirebase() {
   firebaseApp = initializeApp(FIREBASE_FULL_CONFIG);
   db = getFirestore(firebaseApp);
   startListening();
@@ -127,7 +123,6 @@ function startListening() {
     emptyEl.classList.toggle('hidden', firestoreIds.size > 0);
     emptyEl.classList.toggle('flex',   firestoreIds.size === 0);
 
-    // Sprawdź deadliny
     snapshot.forEach(d => checkDeadlineAlert(d.id, d.data()));
   }, err => { showToast('Błąd Firestore: ' + err.message, true); });
 }
@@ -145,7 +140,6 @@ function buildNoteElement(id, data) {
   wrapper.dataset.noteId = id;
   wrapper.classList.add('note-appear');
 
-  // Czas
   let timeStr = '';
   if (data.createdAt?.toDate) {
     const d = data.createdAt.toDate();
@@ -153,7 +147,6 @@ function buildNoteElement(id, data) {
             + ' ' + d.toLocaleTimeString('pl-PL',{hour:'2-digit',minute:'2-digit'});
   }
 
-  // Deadline
   let deadlineHtml = '';
   if (data.deadline) {
     const dl    = new Date(data.deadline);
@@ -173,7 +166,6 @@ function buildNoteElement(id, data) {
     deadlineHtml = `<div class="deadline-badge ${cls}">${label}</div>`;
   }
 
-  // Reakcje
   const reactions = data.reactions || {};
   const reactionPills = Object.entries(reactions).map(([emoji, users]) => {
     const count = users.length;
@@ -181,7 +173,6 @@ function buildNoteElement(id, data) {
     return `<span class="reaction-pill ${mine?'mine':''}" onclick="toggleReaction('${id}','${emoji}')">${emoji} <span>${count}</span></span>`;
   }).join('');
 
-  // Czy wygasła
   const expired = data.deadline && new Date(data.deadline) < new Date();
 
   wrapper.innerHTML = `
@@ -283,7 +274,7 @@ window.toggleReaction = async function(noteId, emoji) {
   } catch(e) { showToast('Błąd reakcji: ' + e.message, true); }
 };
 
-// ── Deadline alert (sprawdza co minutę) ──────────────────────
+// ── Deadline alert ───────────────────────────────────────────
 const alertedDeadlines = new Set();
 
 function checkDeadlineAlert(id, data) {
@@ -374,125 +365,4 @@ async function sendPushToPartner(title, body) {
             }
           })
         });
-        console.log(`[FCM] Wysłano push do partnera (${data.author})`);
-      }
-    });
-  } catch (e) {
-    console.error('[FCM] Błąd podczas wysyłania pusha:', e);
-  }
-}
-
-// ── Modal ─────────────────────────────────────────────────────
-window.openModal = function() {
-  document.getElementById('modal').classList.remove('hidden');
-  document.getElementById('modal').classList.add('flex');
-  selectColor(document.querySelector('[data-color="yellow"]'), 'yellow');
-  document.getElementById('note-title').value    = '';
-  document.getElementById('note-content').value  = '';
-  document.getElementById('note-deadline').value = '';
-  updateModalBg();
-  setTimeout(() => document.getElementById('note-content').focus(), 100);
-};
-window.closeModal = function() {
-  document.getElementById('modal').classList.add('hidden');
-  document.getElementById('modal').classList.remove('flex');
-};
-window.selectColor = function(el, color) {
-  selectedColor = color;
-  document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('selected'));
-  el.classList.add('selected');
-  updateModalBg();
-};
-function updateModalBg() {
-  document.getElementById('modal-inner').style.background = COLOR_MAP[selectedColor] || '#fffde7';
-}
-document.getElementById('modal').addEventListener('click', function(e) {
-  if (e.target === this) closeModal();
-});
-
-// ── Show App ──────────────────────────────────────────────────
-function showApp() {
-  document.getElementById('config-screen').style.display = 'none';
-  document.getElementById('app').classList.remove('hidden');
-  document.getElementById('app').classList.add('flex');
-  document.getElementById('header-author').textContent =
-    `zalogowana/y jako: ${currentEmoji} ${currentAuthor}`;
-    
-  if ('serviceWorker' in navigator && 'Notification' in window) {
-    Notification.requestPermission().then(perm => {
-      if (perm === 'granted') initFCM();
-    });
-  }
-}
-
-window.showConfig = function() {
-  if (!confirm('Wylogować się i wrócić do konfiguracji?')) return;
-  if (unsubscribe) unsubscribe();
-  document.getElementById('config-screen').style.display = 'flex';
-  document.getElementById('app').classList.add('hidden');
-  document.getElementById('app').classList.remove('flex');
-};
-
-// ── Toast ─────────────────────────────────────────────────────
-function showToast(msg, isError = false) {
-  const el = document.createElement('div');
-  el.className = `fixed bottom-24 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-full text-white text-sm font-body font-bold shadow-xl transition-all ${isError?'bg-red-500':'bg-gray-900'}`;
-  el.style.whiteSpace = 'nowrap';
-  el.textContent = msg;
-  document.body.appendChild(el);
-  setTimeout(() => {
-    el.style.opacity = '0'; el.style.transform = 'translate(-50%, 8px)';
-    setTimeout(() => el.remove(), 400);
-  }, 3000);
-}
-
-// ── PWA: Service Worker ───────────────────────────────────────
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/Karteczki/sw.js').catch(e => {
-      console.warn('SW registration failed:', e);
-    });
-  });
-}
-
-// ── PWA: Install Banner ───────────────────────────────────────
-window.addEventListener('beforeinstallprompt', (e) => {
-  e.preventDefault();
-  deferredInstallPrompt = e;
-  const banner = document.getElementById('install-banner');
-  setTimeout(() => banner.classList.add('visible'), 2000);
-});
-
-document.getElementById('install-btn').addEventListener('click', async () => {
-  if (!deferredInstallPrompt) return;
-  deferredInstallPrompt.prompt();
-  const { outcome } = await deferredInstallPrompt.userChoice;
-  if (outcome === 'accepted') showToast('Aplikacja zainstalowana! 🎉');
-  deferredInstallPrompt = null;
-  document.getElementById('install-banner').classList.remove('visible');
-});
-
-window.dismissInstall = function() {
-  document.getElementById('install-banner').classList.remove('visible');
-};
-
-window.addEventListener('appinstalled', () => {
-  document.getElementById('install-banner').classList.remove('visible');
-  showToast('Aplikacja zainstalowana! 🎉');
-});
-
-// ── Auto-start ────────────────────────────────────────────────
-(function autoStart() {
-  const cfg    = loadConfig();
-  const author = loadAuthorLS();
-  if (cfg) {
-    document.getElementById('cfg-apiKey').value     = cfg.apiKey     || '';
-    document.getElementById('cfg-authDomain').value = cfg.authDomain || '';
-    document.getElementById('cfg-projectId').value  = cfg.projectId  || '';
-  }
-  if (author) window.setAuthor(author.name, author.emoji);
-  if (cfg?.apiKey && cfg?.projectId && author?.name) {
-    currentAuthor = author.name; currentEmoji = author.emoji;
-    initFirebase(cfg).then(showApp).catch(e => showError('Błąd: ' + e.message));
-  }
-})();
+        console.log(`[FCM] W
