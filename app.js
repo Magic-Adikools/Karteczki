@@ -92,6 +92,7 @@ function startListening() {
 
     loadingEl.classList.add('hidden');
 
+    const existingIds  = new Set([...container.querySelectorAll('[data-note-id]')].map(e => e.dataset.noteId));
     const firestoreIds = new Set(); snapshot.forEach(d => firestoreIds.add(d.id));
 
     // Usuń usunięte
@@ -105,9 +106,8 @@ function startListening() {
 
     // Dodaj nowe / zaktualizuj zmodyfikowane
     snapshot.docChanges().forEach(change => {
-      if (change.type === 'added') {
-        const exist = container.querySelector(`[data-note-id="${change.doc.id}"]`);
-        if (!exist) container.prepend(buildNoteElement(change.doc.id, change.doc.data()));
+      if (change.type === 'added' && !existingIds.has(change.doc.id)) {
+        container.prepend(buildNoteElement(change.doc.id, change.doc.data()));
       }
       if (change.type === 'modified') {
         const old = container.querySelector(`[data-note-id="${change.doc.id}"]`);
@@ -301,7 +301,10 @@ let fcmMessaging = null;
 
 async function initFCM() {
   try {
-    if (!currentAuthor) return;
+    if (!currentAuthor) {
+      console.warn('[FCM] Próba inicjalizacji bez wybranego autora. Przerywam.');
+      return;
+    }
 
     const { getMessaging, getToken, onMessage } = await import(
       'https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging.js'
@@ -316,14 +319,18 @@ async function initFCM() {
     });
 
     if (token) {
-      // NAPRAWA: Zapisujemy pod kluczem autora (On / Ona) zamiast tokenu.
-      // Zapobiega to wzajemnemu wylogowywaniu się urządzeń.
+      console.log('[FCM] token OK:', token.slice(0,20) + '...');
+      
+      // POPRAWKA: Zapisujemy token bezpośrednio pod nazwą użytkownika (On / Ona)
       await setDoc(doc(db, 'fcm_tokens', currentAuthor), {
         token,
         author: currentAuthor,
         updatedAt: new Date().toISOString(),
       });
+      console.log('[FCM] token zapisany dla użytkownika:', currentAuthor);
       showToast('🔔 Powiadomienia włączone!');
+    } else {
+      console.warn('[FCM] brak tokena');
     }
 
     onMessage(fcmMessaging, (payload) => {
@@ -350,13 +357,19 @@ async function sendPushToPartner(title, body) {
           },
           body: JSON.stringify({
             to: data.token,
-            notification: { title, body, icon: '/Karteczki/icon-192.png', click_action: 'https://magic-adikools.github.io/Karteczki/' }
+            notification: {
+              title: title,
+              body: body,
+              icon: '/Karteczki/icon-192.png',
+              click_action: 'https://magic-adikools.github.io/Karteczki/'
+            }
           })
         });
+        console.log(`[FCM] Powiadomienie wysłane do partnera (${data.author})`);
       }
     });
-  } catch (e) {
-    console.error('[FCM] Błąd pusha:', e);
+  } catch(e) {
+    console.error('[FCM] Błąd wysyłania pusha:', e);
   }
 }
 
@@ -406,7 +419,7 @@ function showApp() {
 window.showConfig = function() {
   if (!confirm('Wylogować się i wrócić do konfiguracji?')) return;
   if (unsubscribe) unsubscribe();
-  localStorage.removeItem(LS_AUTH); // Czyścimy przy wylogowaniu
+  localStorage.removeItem(LS_AUTH);
   document.getElementById('config-screen').style.display = 'flex';
   document.getElementById('app').classList.add('hidden');
   document.getElementById('app').classList.remove('flex');
@@ -452,6 +465,11 @@ document.getElementById('install-btn').addEventListener('click', async () => {
 window.dismissInstall = function() {
   document.getElementById('install-banner').classList.remove('visible');
 };
+
+window.addEventListener('appinstalled', () => {
+  document.getElementById('install-banner').classList.remove('visible');
+  showToast('Aplikacja zainstalowana! 🎉');
+});
 
 // ── Auto-start ────────────────────────────────────────────────
 (function autoStart() {
