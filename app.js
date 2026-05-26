@@ -1,12 +1,12 @@
 // ─────────────────────────────────────────────────────────────
-//  app.js  –  Nasza Tablica v2  |  PWA + Reakcje + Deadline
+//  app.js  –  Nasza Tablica v2  |  PWA + Reakcje + Deadline + PUSH
 // ─────────────────────────────────────────────────────────────
 import { initializeApp }       from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getFirestore,
          collection, addDoc, deleteDoc, doc,
          onSnapshot, serverTimestamp,
          query, orderBy,
-         updateDoc, getDoc }   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+         updateDoc, getDoc, setDoc, getDocs }   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 // ── Stałe ────────────────────────────────────────────────────
 const COLOR_MAP = {
@@ -31,7 +31,6 @@ let deferredInstallPrompt = null;
 // ── LocalStorage ─────────────────────────────────────────────
 const LS_CFG = 'nasza_tablica_config';
 const LS_AUTH = 'nasza_tablica_author';
-const LS_NOTIF = 'nasza_tablica_last_notif';
 function saveConfig(c) { localStorage.setItem(LS_CFG, JSON.stringify(c)); }
 function loadConfig()  { try { return JSON.parse(localStorage.getItem(LS_CFG)); } catch { return null; } }
 function saveAuthorLS(a){ localStorage.setItem(LS_AUTH, JSON.stringify(a)); }
@@ -67,9 +66,8 @@ function showError(msg) {
 }
 
 // ── Firebase init ────────────────────────────────────────────
-// Pełny config Firebase (wymagany przez FCM)
 const FIREBASE_FULL_CONFIG = {
-  apiKey:            'AIzaSyCazP8eaEu66_q05CJM_ay70r0g0YDnZaY',
+  apiKey:            'AIzaSyCazP8eaEu66_q05CJM_ay70rOg0YDnZaY',
   authDomain:        'karteczki-883d8.firebaseapp.com',
   projectId:         'karteczki-883d8',
   storageBucket:     'karteczki-883d8.firebasestorage.app',
@@ -78,7 +76,6 @@ const FIREBASE_FULL_CONFIG = {
 };
 
 async function initFirebase(cfg) {
-  // Używamy pełnego config (FCM wymaga appId i messagingSenderId)
   const app = initializeApp(FIREBASE_FULL_CONFIG);
   db = getFirestore(app);
   startListening();
@@ -115,7 +112,6 @@ function startListening() {
     snapshot.docChanges().forEach(change => {
       if (change.type === 'added' && !existingIds.has(change.doc.id)) {
         container.prepend(buildNoteElement(change.doc.id, change.doc.data()));
-
       }
       if (change.type === 'modified') {
         const old = container.querySelector(`[data-note-id="${change.doc.id}"]`);
@@ -200,7 +196,6 @@ function buildNoteElement(id, data) {
       ${data.title ? `<h3 class="font-handwritten font-bold text-lg text-gray-800 leading-tight mb-1">${escHtml(data.title)}</h3>` : ''}
       <p class="font-handwritten text-base text-gray-700 leading-snug whitespace-pre-wrap">${escHtml(data.content)}</p>
       ${deadlineHtml}
-      <!-- Reakcje -->
       <div class="reaction-bar mt-2">
         ${reactionPills}
         <span class="reaction-add" onclick="openEmojiModal('${id}')">＋</span>
@@ -229,7 +224,13 @@ window.saveNote = async function() {
       reactions: {},
       createdAt: serverTimestamp(),
     });
-    closeModal(); showToast('Karteczka przypięta! 📌');
+    closeModal(); 
+    showToast('Karteczka przypięta! 📌');
+    
+    // Wysłanie powiadomienia do partnera
+    const pushBody = content.length > 40 ? content.slice(0, 40) + "..." : content;
+    await sendPushToPartner(`📌 Nowa wiadomość od: ${currentAuthor}`, pushBody);
+    
   } catch(e) { showToast('Błąd zapisu: ' + e.message, true); }
 };
 
@@ -299,12 +300,9 @@ function checkDeadlineAlert(id, data) {
 setInterval(() => {
   const container = document.getElementById('notes-container');
   if (!container || !db) return;
-  // odśwież badge na karteczkach (co minutę)
   container.querySelectorAll('[data-note-id]').forEach(el => {
     const badge = el.querySelector('.deadline-badge');
-    // odśwież tylko jeśli jest termin
-    if (badge) el.classList.toggle('note-expired',
-      el.querySelector('.deadline-overdue') !== null);
+    if (badge) el.classList.toggle('note-expired', el.querySelector('.deadline-overdue') !== null);
   });
 }, 60000);
 
@@ -321,7 +319,6 @@ async function initFCM() {
     );
 
     fcmMessaging = getMessaging(getApp());
-
     const swReg = await navigator.serviceWorker.ready;
 
     const token = await getToken(fcmMessaging, {
@@ -331,15 +328,16 @@ async function initFCM() {
 
     if (token) {
       console.log('[FCM] token OK:', token.slice(0,20) + '...');
-      const { doc, setDoc } = await import(
-        'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js'
-      );
-      await setDoc(doc(db, 'fcm_tokens', token.slice(0, 40)), {
+      
+      // Bezpieczne ID dokumentu oparte o cały token (zakodowane Base64)
+      const safeTokenId = btoa(token).replace(/[/+=]/g, '_');
+      
+      await setDoc(doc(db, 'fcm_tokens', safeTokenId), {
         token,
         author: currentAuthor,
         updatedAt: new Date().toISOString(),
       });
-      console.log('[FCM] token zapisany');
+      console.log('[FCM] token zapisany dla użytkownika:', currentAuthor);
       showToast('🔔 Powiadomienia włączone!');
     } else {
       console.warn('[FCM] brak tokena');
@@ -351,6 +349,41 @@ async function initFCM() {
 
   } catch(e) {
     console.error('[FCM] błąd:', e.message);
+  }
+}
+
+// ── Funkcja wysyłająca powiadomienie do partnera ─────────────
+async function sendPushToPartner(title, body) {
+  try {
+    const querySnapshot = await getDocs(collection(db, 'fcm_tokens'));
+    
+    querySnapshot.forEach(async (docSnap) => {
+      const data = docSnap.data();
+      
+      // Wyślij tylko do partnera (jeśli autor w bazie jest inny niż aktualnie zalogowany)
+      if (data.author !== currentAuthor && data.token) {
+        await fetch('https://fcm.googleapis.com/fcm/send', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            // Poniżej wklej swój Server Key z konsoli Firebase (Legacy API)
+            'Authorization': 'key=AIzaSyCazP8eaEu66_q05CJM_ay70rOg0YDnZaY'
+          },
+          body: JSON.stringify({
+            to: data.token,
+            notification: {
+              title: title,
+              body: body,
+              icon: '/Karteczki/icon-192.png',
+              click_action: 'https://magic-adikools.github.io/Karteczki/'
+            }
+          })
+        });
+        console.log(`[FCM] Wysłano push do partnera (${data.author})`);
+      }
+    });
+  } catch (e) {
+    console.error('[FCM] Błąd podczas wysyłania pusha:', e);
   }
 }
 
@@ -389,7 +422,7 @@ function showApp() {
   document.getElementById('app').classList.add('flex');
   document.getElementById('header-author').textContent =
     `zalogowana/y jako: ${currentEmoji} ${currentAuthor}`;
-  // Inicjuj FCM po zalogowaniu
+    
   if ('serviceWorker' in navigator && 'Notification' in window) {
     Notification.requestPermission().then(perm => {
       if (perm === 'granted') initFCM();
